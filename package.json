@@ -1,0 +1,29 @@
+{
+  "private": true,
+  "displayName": "FRITZ!Box",
+  "name": "homebridge-fritzbox",
+  "version": "0.1.0",
+  "description": "FRITZ!Box for Homebridge",
+  "main": "src/index.js",
+  "author": "Hendrik Meinl",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/maxgrafik/homebridge-fritzbox.git"
+  },
+  "bugs": {
+    "url": "https://github.com/maxgrafik/homebridge-fritzbox/issues"
+  },
+  "engines": {
+    "node": "^18.20.4 || ^20.18.0 || ^22.10.0",
+    "homebridge": "^1.8.0 || ^2.0.0-beta.0"
+  },
+  "keywords": [
+    "homebridge-plugin",
+    "FRITZ!Box",
+    "fritzbox"
+  ],
+  "dependencies": {
+    "fast-xml-parser": "^4.5.1"
+  }
+}

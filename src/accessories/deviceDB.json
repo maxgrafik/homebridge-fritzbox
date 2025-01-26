@@ -1,0 +1,9 @@
+{
+    "FRITZ!Smart Energy 200": {
+        "services": [
+            "Outlet",
+            "TemperatureSensor"
+        ],
+        "characteristics": []
+    }
+}

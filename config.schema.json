@@ -1,0 +1,164 @@
+{
+    "pluginAlias": "FRITZ!Box",
+    "pluginType": "platform",
+    "singular": true,
+    "headerDisplay": "FRITZ!Box for Homebridge Setup",
+    "schema": {
+        "type": "object",
+        "properties": {
+            "name" : {
+                "type": "string",
+                "title": "FRITZ!Box",
+                "default": "FRITZ!Box"
+            },
+            "username": {
+                "type": "string",
+                "title": "Username",
+                "notitle": true,
+                "description": "Your FRITZ!Box username (if any)",
+                "placeholder": "Username"
+            },
+            "password": {
+                "type": "string",
+                "title": "Password",
+                "notitle": true,
+                "description": "Your FRITZ!Box password (if any)",
+                "placeholder": "Password"
+            },
+            "services": {
+                "type": "object",
+                "properties": {
+                    "WLAN": {
+                        "type": "string",
+                        "title": "WLAN",
+                        "notitle": true,
+                        "enum": ["none", "guest", "all"],
+                        "default": "guest",
+                        "required": true
+                    },
+                    "TAM": {
+                        "type": "boolean",
+                        "title": "Answering machines",
+                        "default": true
+                    },
+                    "CallDeflection": {
+                        "type": "boolean",
+                        "title": "Call deflections",
+                        "default": true
+                    },
+                    "SmartHome": {
+                        "type": "boolean",
+                        "title": "Smart home devices",
+                        "default": true
+                    }
+                }
+            },
+            "update": {
+                "type": "object",
+                "properties": {
+                    "fritzbox": {
+                        "type": "number",
+                        "title": "FRITZ!Box features",
+                        "description": "Update every n seconds",
+                        "placeholder": 60,
+                        "minimum": 5,
+                        "default": 60
+                    },
+                    "smarthome": {
+                        "type": "number",
+                        "title": "Smart home devices",
+                        "description": "Update every n seconds",
+                        "placeholder": 15,
+                        "minimum": 5,
+                        "default": 15
+                    }
+                }
+            },
+            "advanced": {
+                "type": "object",
+                "properties": {
+                    "host": {
+                        "type": "string",
+                        "title": "Host",
+                        "description": "The IP of your FRITZ!Box, if you want to bypass auto discovery",
+                        "placeholder": "192.168.178.1",
+                        "format": "ipv4"
+                    },
+                    "SSL": {
+                        "type": "boolean",
+                        "title": "SSL",
+                        "description": "Note: The default self-signed certificate of the FRITZ!Box usually won’t work",
+                        "default": false
+                    }
+                }
+            }
+        }
+    },
+
+    "form" : [
+        {
+            "type": "fieldset",
+            "title": "Login",
+            "expandable": false,
+            "items": [
+                {
+                    "type": "flex",
+                    "flex-flow": "row wrap",
+                    "items": [
+                        "username",
+                        "password"
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "fieldset",
+            "title": "Services",
+            "description": "Select which features of the FRITZ!Box you would like to include",
+            "expandable": true,
+            "expanded": false,
+            "items": [
+                {
+                    "key": "services.WLAN",
+                    "type": "select",
+                    "titleMap": {
+                        "none": "No WiFi",
+                        "guest": "Guest WiFi",
+                        "all": "All WiFis"
+                    }
+                },
+                "services.TAM",
+                "services.CallDeflection",
+                "services.SmartHome"
+            ]
+        },
+        {
+            "type": "fieldset",
+            "title": "State updates",
+            "description": "Adjust how often selected FRITZ!Box features and smart home devices should be updated",
+            "expandable": true,
+            "expanded": false,
+            "items": [
+                {
+                    "type": "flex",
+                    "flex-flow": "row wrap",
+                    "items": [
+                        "update.fritzbox",
+                        "update.smarthome"
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "fieldset",
+            "title": "Advanced",
+            "description": "Don’t change unless you know what you’re doing",
+            "expandable": true,
+            "expanded": false,
+            "items": [
+                "advanced.host",
+                "advanced.SSL"
+            ]
+        }
+    ]
+}
