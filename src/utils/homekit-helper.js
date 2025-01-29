@@ -8,9 +8,10 @@
 "use strict";
 
 /**
- * Get HomeKit friendly name as suggested by Apple
- * and implemented in homebridge/HAP-NodeJS
- * @param {string} name - Current accessory name to be "friendlyfied"
+ * Get HomeKit friendly name as suggested by Apple and implemented in
+ * homebridge/HAP-NodeJS
+ * @param   {string} name - Current accessory name to be "friendlyfied"
+ * @returns {string}      - HomeKit friendly name
  */
 function getHomeKitFriendlyName(name) {
 

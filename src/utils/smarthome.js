@@ -18,9 +18,8 @@ const { XMLParser } = require("fast-xml-parser");
 class SmartHome {
 
     /**
-     * @param {Logger} log    - Homebridge logger
-     * @param {Object} config - Plugin config
-     * @param {URL}    url    - TR-064 service description url
+     * Note: url is NOT a string!!
+     * @param {URL} url - TR-064 service description url
      */
     constructor(log, config, url) {
 
@@ -162,7 +161,16 @@ class SmartHome {
             // Response is the status text as "text/plain; charset=utf-8"
             // except for some switchcmd where it is "text/xml; charset=utf-8"
 
-            const exceptions = ["getdevicelistinfos", "getsubscriptionstate", "getbasicdevicestats"];
+            const exceptions = [
+                "getdevicelistinfos",
+                "getbasicdevicestats",
+                "gettriggerlistinfos",
+                "gettemplatelistinfos",
+                "getcolordefaults",
+                "getsubscriptionstate",
+                "getdeviceinfos"
+            ];
+
             if (exceptions.includes(switchcmd)) {
                 response  = this.parser.parse(data, true);
             } else {
@@ -195,6 +203,33 @@ class SmartHome {
     }
 
     /**
+     * Get ColorDefaults for colored Lightbulbs
+     * @public
+     */
+    async getColorDefaults() {
+
+        const obj = await this.send("getcolordefaults");
+
+        this.ColorDefaults = [];
+        for (const hsObj of (obj["colordefaults"]?.["hsdefaults"]?.["hs"] || [])) {
+            for (const color of (hsObj["color"] || [])) {
+                this.ColorDefaults.push([
+                    parseInt(color["@hue"]),
+                    parseInt(color["@sat"] || color["@saturation"]),
+                    parseInt(color["@val"] || color["@value"])
+                ]);
+            }
+        }
+
+        this.TemperatureDefaults = [];
+        for (const tempObj of (obj["colordefaults"]?.["temperaturedefaults"]?.["temp"] || [])) {
+            this.TemperatureDefaults.push(
+                parseInt(tempObj["@val"] || tempObj["@value"])
+            );
+        }
+    }
+
+    /**
      * Compose the URL for a command
      * @param {string}  switchcmd - The command
      * @param {?Object} params    - Command parameters as key/value
@@ -215,28 +250,43 @@ class SmartHome {
 
     /**
      * Create services and characteristics for unknown devices
-     * @param {number} bitmask - Bitmask describing device capabilities
-     * @returns {Object}
+     * @param   {Object} device - Device description from getdevicelistinfos
+     * @returns {Object}        - Device services[] and characteristics[]
      * @public
      */
-    getServicesAndCharacteristics(bitmask) {
+    getServicesAndCharacteristics(device) {
+
+        const bitmask = parseInt(device["@functionbitmask"]);
+        const unitType = parseInt(device["etsiunitinfo"]?.["unittype"]);
+
+        // The following order of services is opinionated!
 
         const services = [
-            "Lightbulb",
-            "Outlet",
-            "Switch",
-            "Thermostat",
             "WindowCovering",
+            "Thermostat",
+            "Outlet",
+            "Lightbulb",
+            "Switch",
+            "ContactSensor",
+            "LeakSensor",
+            "MotionSensor",
+            "TemperatureSensor",
             "HumiditySensor",
-            "TemperatureSensor"
         ];
 
-        const primaryService = [];
-        const secondaryServices = [];
 
-        const deviceReportedServices = this.getServicesFromBitmask(bitmask);
+        // Get services
+
+        let deviceReportedServices = [];
+
+        if (bitmask & (1 << 13)) { // Bit 13 = HAN-FUN Unit
+            deviceReportedServices = this.getServiceFromUnitType(unitType);
+        } else {
+            deviceReportedServices = this.getServicesFromBitmask(bitmask);
+        }
 
         // Pick the FIRST one that matches as primary service
+        const primaryService = [];
         for (const service of services) {
             const match = deviceReportedServices.find((element) => element === service);
             if (match) {
@@ -246,6 +296,7 @@ class SmartHome {
         }
 
         // Pick ANY other that matches as secondary service
+        const secondaryServices = [];
         for (const service of services) {
             const match = deviceReportedServices.find((element) => element === service);
             if (match && !primaryService.includes(match)) {
@@ -253,9 +304,20 @@ class SmartHome {
             }
         }
 
+        deviceReportedServices = primaryService.concat(secondaryServices);
+
+
+        // Get characteristics
+
+        let deviceReportedCharacteristics = [];
+
+        if (deviceReportedServices.includes("Lightbulb")) {
+            deviceReportedCharacteristics = this.getLightbulbCharacteristics(device);
+        }
+
         return {
-            services: primaryService.concat(secondaryServices),
-            characteristics: []
+            services: deviceReportedServices,
+            characteristics: deviceReportedCharacteristics
         };
     }
 
@@ -287,7 +349,7 @@ class SmartHome {
             null,                 // Bit 13: HAN-FUN Unit
             null,                 // Bit 14: -
             "Switch",             // Bit 15: Generic switchable device (outlet, lightbulb, etc.)
-            null,                 // Bit 16: Generic level device (dimmable lightbulb, blinds, etc.)
+            null,                 // Bit 16: Generic level device (lightbulb, blinds, etc.) - impossible to decide
             "Lightbulb",          // Bit 17: Color Lightbulb
             "WindowCovering",     // Bit 18: Blinds
             null,                 // Bit 19: -
@@ -296,6 +358,87 @@ class SmartHome {
 
         // https://www.geeksforgeeks.org/check-if-a-given-bit-is-set-or-not-using-javascript/
         return services.filter((element, index) => element !== null && (bitmask & (1 << index)));
+    }
+
+    /**
+     * Map FRITZ!Box HAN-FUN unit types to Homebridge service
+     * @param   {number} unitType - HAN-FUN unit type
+     * @returns {Array}           - 1 element Array with Homebridge service or empty
+     * @private
+     */
+    getServiceFromUnitType(unitType) {
+
+        // HAN-FUN Unit Types
+
+        const services = new Map([
+            [273, null],              // SIMPLE_BUTTON
+            [256, "Switch"],          // SIMPLE_ON_OFF_SWITCHABLE
+            [262, "Outlet"],          // AC_OUTLET
+            [257, "Switch"],          // SIMPLE_ON_OFF_SWITCH
+            [263, "Outlet"],          // AC_OUTLET_SIMPLE_POWER_METERING
+            [264, "Lightbulb"],       // SIMPLE_LIGHT
+            [265, "Lightbulb"],       // DIMMABLE_LIGHT
+            [266, "Lightbulb"],       // DIMMER_SWITCH
+            [277, "Lightbulb"],       // COLOR_BULB
+            [278, "Lightbulb"],       // DIMMABLE_COLOR_BULB
+            [281, "WindowCovering"],  // BLIND
+            [282, "WindowCovering"],  // LAMELLAR
+            [512, "ContactSensor"],   // SIMPLE_DETECTOR
+            [513, "ContactSensor"],   // DOOR_OPEN_CLOSE_DETECTOR
+            [514, "ContactSensor"],   // WINDOW_OPEN_CLOSE_DETECTOR
+            [515, "MotionSensor"],    // MOTION_DETECTOR
+            [518, "LeakSensor"],      // FLOOD_DETECTOR
+            [519, null],              // GLAS_BREAK_DETECTOR
+            [520, null],              // VIBRATION_DETECTOR
+            [640, null]               // SIREN
+        ]);
+
+        if (services.get(unitType)) {
+            return [services.get(unitType)];
+        } else {
+            return [];
+        }
+    }
+
+    /**
+     * Return Homebridge lightbulb characteristics
+     * @param   {Object} device - Device description from getdevicelistinfos
+     * @returns {Array}         - Array of Homebridge characteristics
+     * @private
+     */
+    getLightbulbCharacteristics(device) {
+
+        const characteristics = [];
+
+        // Brightness
+
+        if (
+            device["levelcontrol"]?.["level"] !== undefined
+            || device["levelcontrol"]?.["levelpercentage"] !== undefined
+        ) {
+            characteristics.push("Brightness");
+        }
+
+        // ColorTemperature OR Hue/Saturation
+
+        // const supportedModes = parseInt(device["colorcontrol"]?.["@supported_modes"]);
+        // const supportsHueSaturation = (supportedModes & (1 << 0));
+        // const supportsColorTemperature = (supportedModes & (1 << 2));
+        // const fullColorSupport = parseInt(device["colorcontrol"]?.["@fullcolorsupport"] || 0);
+        const currentMode = parseInt(device["colorcontrol"]?.["@current_mode"] || 0);
+        const mapped = parseInt(device["colorcontrol"]?.["@mapped"] || 0);
+
+        if (currentMode === 1) {
+            characteristics.push("Hue", "Saturation");
+        } else if (currentMode === 4) {
+            characteristics.push("ColorTemperature");
+        }
+
+        if (mapped) {
+            characteristics.push("UseMappedColor");
+        }
+
+        return characteristics;
     }
 
     /**

@@ -34,8 +34,9 @@ class Switch extends Accessory {
             .onSet(this.setOn.bind(this));
 
 
-        // Set as primary service, as the parent class might have added additional services
-        this.switchService.setPrimaryService(true);
+        // Add secondary services
+
+        this.addSecondaryServices(this.accessory.context.device.services.slice(1));
     }
 
     getOn() {
@@ -51,7 +52,7 @@ class Switch extends Accessory {
         const switchcmd = value ? "setswitchon" : "setswitchoff";
         this.smarthome.send(switchcmd, { ain: this.accessory.context.device.identifier }).then((response) => {
 
-            const newValue = response.trim() === "1" ? true : false;
+            const newValue = parseInt(response) ? true : false;
 
             this.log.info(`${this.accessory.displayName} was switched`, newValue ? "on" : "off");
 

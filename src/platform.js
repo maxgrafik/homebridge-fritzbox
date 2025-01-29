@@ -46,9 +46,20 @@ class FritzBoxPlatform {
         api.on("didFinishLaunching", () => {
             this.discoverDevices().then((isSetupOK) => {
 
+                // clean up
+                this.accessories.clear();
+                this.discoveredCacheUUIDs = [];
+
                 if (isSetupOK) {
+
                     this.updateDevices();
+
                 } else {
+
+                    this.FritzBox = null;
+                    this.SmartHome = null;
+                    this.SmartHomeAccessories = [];
+
                     this.log.error("Plugin stopped");
                 }
 
@@ -91,7 +102,7 @@ class FritzBoxPlatform {
                 return;
             } else if (deviceURLs.length > 1) {
                 this.log.info("%s devices found. Please configure the IP for the FRITZ!Box you would like to use", deviceURLs.length);
-                this.log.info("Available options: %s", deviceURLs.map(url => url.hostname).reduce((opt, ip) => opt + `, ${ip}`));
+                this.log.info("Available options: %s", deviceURLs.map(url => url.hostname).join(", "));
                 return;
             }
 
@@ -137,20 +148,20 @@ class FritzBoxPlatform {
         let defaultUser = null;
 
         if (!this.config.username && this.config.password) {
-            tr064.setDefaultUser("dslf-config");
             try {
+                tr064.setDefaultUser("dslf-config");
                 const currentUser = await tr064.send("urn:dslforum-org:service:LANConfigSecurity:1", "X_AVM-DE_GetCurrentUser");
                 if (currentUser?.["NewX_AVM-DE_CurrentUsername"] === undefined) {
                     this.log.error("It seems this FRITZ!Box does not support retrieving a valid username");
                     return;
                 }
                 defaultUser = currentUser["NewX_AVM-DE_CurrentUsername"];
+                tr064.setDefaultUser(defaultUser);
             } catch (error) {
                 this.log.debug(error.message || error);
                 this.log.error("Something went wrong. Are you sure this FRITZ!Box supports login without a username?");
                 return;
             }
-            tr064.setDefaultUser(defaultUser);
         }
 
 
@@ -282,7 +293,10 @@ class FritzBoxPlatform {
 
                 const state = await this.smarthome.getState();
 
+                // Save device list for plugin support
                 this.saveDeviceList(state);
+
+                let useMappedColor = false;
 
                 const deviceList = state?.["devicelist"]?.["device"] || [];
                 for (const device of deviceList) {
@@ -295,7 +309,7 @@ class FritzBoxPlatform {
 
                         if (deviceDescription === undefined) {
                             this.log.warn("Device not in database: %s", device["@productname"]);
-                            deviceDescription = this.smarthome.getServicesAndCharacteristics(device["@functionbitmask"]);
+                            deviceDescription = this.smarthome.getServicesAndCharacteristics(device);
                         }
 
                         if (deviceDescription.services.length === 0) {
@@ -313,13 +327,17 @@ class FritzBoxPlatform {
                             if (Object.hasOwn(device, "battery")) { characteristics.push("BatteryLevel"); }
                         }
 
+                        if (services.includes("Lightbulb") && characteristics.includes("UseMappedColor")) {
+                            useMappedColor = true;
+                        }
+
                         smartHomeAccessories.push({
                             UUID        : this.api.hap.uuid.generate(`${device["@manufacturer"]} ${device["@identifier"]}`),
                             displayName : HomeKitHelper.getHomeKitFriendlyName(device["name"]),
                             device      : {
-                                id             : device["@id"],
+                                id             : device["@id"],            // Probably not needed
                                 identifier     : device["@identifier"],
-                                manufacturer   : device["@manufacturer"],
+                                manufacturer   : device["@manufacturer"],  // TODO: Get manufacturer from code
                                 serialNo       : device["@identifier"],
                                 model          : device["@productname"] || "Generic Device",
                                 fwversion      : device["@fwversion"],
@@ -330,6 +348,12 @@ class FritzBoxPlatform {
                         });
                     }
                 }
+
+                // If a lightbulb uses mapped colors, get ColorDefaults
+                if (useMappedColor) {
+                    await this.smarthome.getColorDefaults();
+                }
+
                 this.log.debug("[Interview] Found %s connected smart home device(s)", smartHomeAccessories.length);
             }
         }

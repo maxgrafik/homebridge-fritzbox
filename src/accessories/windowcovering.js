@@ -52,8 +52,9 @@ class WindowCovering extends Accessory {
             .onGet(this.onGetObstructionDetected.bind(this));
 
 
-        // Set as primary service, as the parent class might have added additional services
-        this.windowCovering.setPrimaryService(true);
+        // Add secondary services
+
+        this.addSecondaryServices(this.accessory.context.device.services.slice(1));
     }
 
     onGetCurrentPosition() {
@@ -86,12 +87,11 @@ class WindowCovering extends Accessory {
             // Send command
             try {
 
-                // setlevel: switchcmd, sid, ain, level: 0-255 (0-100%)
-                // setlevelpercentage: switchcmd, sid, ain, level: 0-100 (0-100%)
-
                 // Set our own (internal) state
                 this.accessory.context.device.state.TargetPosition = value;
 
+                // setlevel: { level: 0-255 (0-100%) }
+                // setlevelpercentage: { level: 0-100 (0-100%) }
                 this.smarthome.send("setlevelpercentage", { ain: this.accessory.context.device.identifier, level: value }).then(() => {
                     this.log.info(`Setting ${this.accessory.displayName} to ${value}%`);
                 });
@@ -119,14 +119,16 @@ class WindowCovering extends Accessory {
 
         super.update(state);
 
+
         // Get current values
+
         let CurrentPosition = this.accessory.context.device.state.CurrentPosition;
         let PositionState = this.accessory.context.device.state.PositionState;
         let ObstructionDetected = this.accessory.context.device.state.ObstructionDetected;
 
+
         // CurrentPosition
-        // <levelcontrol><level>0-255
-        // <levelcontrol><levelpercentage>0-100
+
         if (state["levelcontrol"]?.["level"] !== undefined) {
             CurrentPosition = Math.round(100 / 255 * parseInt(state["levelcontrol"]["level"]));
         } else if (state["levelcontrol"]?.["levelpercentage"] !== undefined) {
@@ -135,14 +137,19 @@ class WindowCovering extends Accessory {
             // oops!
         }
 
+
         // PositionState
+
         const TargetPosition = this.accessory.context.device.state.TargetPosition;
         PositionState = (CurrentPosition !== TargetPosition) ? ((CurrentPosition > TargetPosition) ? 0 : 1) : 2;
 
+
         // ObstructionDetected
+
         // <alert><state>0/1 (bitmask 00000001 = obstruction detected)
         const alert = parseInt(state["alert"]?.["state"] || 0);
         ObstructionDetected = (alert & 1) === 1 ? true : false;
+
 
         this.accessory.context.device.state.CurrentPosition = CurrentPosition;
         this.accessory.context.device.state.PositionState = PositionState;

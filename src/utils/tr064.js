@@ -319,6 +319,7 @@ class TR064 {
      * @param   {string}  actionName  - SOAP action
      * @param   {?Object} actionArgs  - Arguments for SOAP action as key/value
      * @returns {Promise}             - FRITZ!Box response (or null)
+     * @public
      */
     async send(serviceType, actionName, actionArgs = null) {
 
@@ -382,7 +383,7 @@ class TR064 {
     }
 
     /**
-     * Converts a value from a SOAP response (usually string)
+     * Converts a value FROM a SOAP response (usually string)
      * to the specified type e.g. a "true" int
      * @param {*}      value    - The value
      * @param {string} dataType - Data type from service state table
@@ -413,7 +414,7 @@ class TR064 {
     }
 
     /**
-     * Convert all values of the object to the specified type
+     * Convert all values of the object to the respective type
      * @param {Object} obj      - The object
      * @param {string} dataType - Data type from service state table
      * @private
@@ -438,7 +439,7 @@ class TR064 {
     }
 
     /**
-     * Converts a value for a SOAP request into the expected type
+     * Converts a value FOR a SOAP request into the expected type
      * @param {*}      value    - The value
      * @param {string} dataType - Data type from service state table
      * @returns {*}             - Converted value
@@ -450,7 +451,7 @@ class TR064 {
         case "ui1":
         case "ui2":
         case "ui4":
-            // TODO: range check for int values
+            // TODO: range check for int values?
             if (typeof value === "string") { return parseInt(value); }
             if (typeof value === "number") { return value; }
             return value; // we're doomed :P
@@ -474,6 +475,7 @@ class TR064 {
      * Find the value for a given key in the object
      * @param {Object} haystack - The object to search in
      * @param {string} needle   - The key for which we want the value
+     * @private
      */
     getValueByKey(haystack, needle) {
         for (const key of Object.keys(haystack)) {
@@ -488,7 +490,8 @@ class TR064 {
 
     /**
      * Creates an authorization header for Digest authentication
-     * @param {string} uri - The uri (pathname) needed for the MD5 hash
+     * @param   {string} uri - The uri (pathname) needed for the MD5 hash
+     * @returns {string}     - Authorization header
      * @private
      */
     getAuthorizationHeader(uri) {

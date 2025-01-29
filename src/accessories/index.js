@@ -7,6 +7,8 @@
 
 "use strict";
 
+// TODO: ContactSensor, MotionSensor, LeakSensor
+
 module.exports = {
     HumiditySensor: require("./humiditysensor"),
     Lightbulb: require("./lightbulb"),

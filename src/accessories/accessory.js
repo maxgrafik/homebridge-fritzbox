@@ -13,7 +13,7 @@
  */
 class Accessory {
 
-    constructor(platform, accessory, addAsPrimaryService = null) {
+    constructor(platform, accessory) {
 
         this.platform = platform;
         this.accessory = accessory;
@@ -24,11 +24,6 @@ class Accessory {
         this.Service = platform.api.hap.Service;
         this.Characteristic = platform.api.hap.Characteristic;
 
-        this.secondaryServices = this.accessory.context.device.services.slice(1);
-        if (addAsPrimaryService !== null) {
-            this.secondaryServices.push(addAsPrimaryService);
-        }
-
 
         // Accessory information
 
@@ -37,6 +32,13 @@ class Accessory {
             .setCharacteristic(this.Characteristic.SerialNumber, this.accessory.context.device.serialNo)
             .setCharacteristic(this.Characteristic.Model, this.accessory.context.device.model)
             .setCharacteristic(this.Characteristic.FirmwareRevision, this.accessory.context.device.fwversion);
+    }
+
+    addSecondaryServices(services) {
+
+        if (services.length === 0) {
+            return;
+        }
 
 
         // Since manufacturers nowadays put all kinds of sensors into our smart home devices
@@ -46,7 +48,7 @@ class Accessory {
 
         // TemperatureSensor (if any)
 
-        if (this.secondaryServices.includes("TemperatureSensor")) {
+        if (services.includes("TemperatureSensor")) {
 
             this.temperatureSensor = this.accessory.getService(this.Service.TemperatureSensor) || this.accessory.addService(this.Service.TemperatureSensor);
 
@@ -55,17 +57,12 @@ class Accessory {
             this.accessory.context.device.state.CurrentTemperature = 0;
             this.temperatureSensor.getCharacteristic(this.Characteristic.CurrentTemperature)
                 .onGet(this.onGetCurrentTemperature.bind(this));
-
-            // Make this the primary service
-            if (addAsPrimaryService === "TemperatureSensor") {
-                this.temperatureSensor.setPrimaryService(true);
-            }
         }
 
 
         // HumiditySensor (if any)
 
-        if (this.secondaryServices.includes("HumiditySensor")) {
+        if (services.includes("HumiditySensor")) {
 
             this.humiditySensor = this.accessory.getService(this.Service.HumiditySensor) || this.accessory.addService(this.Service.HumiditySensor);
 
@@ -74,30 +71,25 @@ class Accessory {
             this.accessory.context.device.state.CurrentRelativeHumidity = 0;
             this.humiditySensor.getCharacteristic(this.Characteristic.CurrentRelativeHumidity)
                 .onGet(this.onGetCurrentRelativeHumidity.bind(this));
-
-            // Make this the primary service
-            if (addAsPrimaryService === "HumiditySensor") {
-                this.humiditySensor.setPrimaryService(true);
-            }
         }
 
 
         // Battery (if any)
 
-        if (this.secondaryServices.includes("Battery")) {
+        if (services.includes("Battery")) {
 
             this.battery = this.accessory.getService(this.Service.Battery) || this.accessory.addService(this.Service.Battery);
 
             // Required characteristics for Battery
             this.accessory.context.device.state.StatusLowBattery = 0;
             this.battery.getCharacteristic(this.Characteristic.StatusLowBattery)
-                .onGet(this.getStatusLowBattery.bind(this));
+                .onGet(this.onGetStatusLowBattery.bind(this));
 
             // Optional characteristics for Battery
             if (this.accessory.context.device.characteristics.includes("BatteryLevel")) {
                 this.accessory.context.device.state.BatteryLevel = 100;
                 this.battery.getCharacteristic(this.Characteristic.BatteryLevel)
-                    .onGet(this.getBatteryLevel.bind(this));
+                    .onGet(this.onGetBatteryLevel.bind(this));
             }
         }
     }
@@ -110,11 +102,11 @@ class Accessory {
         return this.accessory.context.device.state.CurrentRelativeHumidity;
     }
 
-    getStatusLowBattery() {
+    onGetStatusLowBattery() {
         return this.accessory.context.device.state.StatusLowBattery;
     }
 
-    getBatteryLevel() {
+    onGetBatteryLevel() {
         return this.accessory.context.device.state.BatteryLevel;
     }
 
@@ -125,7 +117,7 @@ class Accessory {
      */
     update(state) {
 
-        // Update accessory information (FirmwareRevision)
+        // Accessory information (FirmwareRevision)
 
         const fwversion = state["@fwversion"];
         if (fwversion !== undefined && fwversion !== this.accessory.context.device.fwversion) {
@@ -134,29 +126,32 @@ class Accessory {
                 .updateCharacteristic(this.Characteristic.FirmwareRevision, fwversion);
         }
 
-        // Update CurrentTemperature
+
+        // CurrentTemperature
 
         // HomeKit: °C -270-100, step 0.1 (float)
         // FRITZ!Box: °C -/+ n, step 1 (int) -> temperature = value/10 -> 195 = 19.5 °C
-        if (this.secondaryServices.includes("TemperatureSensor")) {
+        if (this.temperatureSensor !== undefined) {
             const CurrentTemperature = parseInt(state["temperature"]?.["celsius"] || 0) / 10;
             const Offset = parseInt(state["temperature"]?.["offset"] || 0) / 10;
             this.accessory.context.device.state.CurrentTemperature = CurrentTemperature + Offset;
             this.temperatureSensor.updateCharacteristic(this.Characteristic.CurrentTemperature, CurrentTemperature + Offset);
         }
 
-        // Update CurrentRelativeHumidity
+
+        // CurrentRelativeHumidity
 
         // Percentage 0-100, step 1 (float)
-        if (this.secondaryServices.includes("HumiditySensor")) {
+        if (this.humiditySensor !== undefined) {
             const CurrentRelativeHumidity = parseInt(state["humidity"]?.["rel_humidity"] || 0);
             this.accessory.context.device.state.CurrentRelativeHumidity = CurrentRelativeHumidity;
             this.humiditySensor.updateCharacteristic(this.Characteristic.CurrentRelativeHumidity, CurrentRelativeHumidity);
         }
 
-        // Update Battery
 
-        if (this.secondaryServices.includes("Battery")) {
+        // Battery
+
+        if (this.battery !== undefined) {
 
             const StatusLowBattery = state["batterylow"] !== undefined
                 ? parseInt(state["batterylow"])

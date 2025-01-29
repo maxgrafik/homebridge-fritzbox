@@ -42,8 +42,6 @@ class Thermostat extends Accessory {
 
         // Hide heating/cooling options from target state
         this.thermostat.getCharacteristic(this.Characteristic.TargetHeatingCoolingState).setProps({
-            minValue: 0,
-            maxValue: 3,
             validValues: [0, 3],
         });
 
@@ -68,7 +66,7 @@ class Thermostat extends Accessory {
          * NOTE
          * TemperatureDisplayUnits is meant to control the units used on a physical thermostat display
          * HomeKit is ALWAYS celsius. The conversion between °C and °F is done by HomeKit depending on
-         * the settings on the iPhone.
+         * system settings.
          */
 
         this.accessory.context.device.state.TemperatureDisplayUnits = 0;
@@ -76,8 +74,10 @@ class Thermostat extends Accessory {
             .onGet(this.onGetTemperatureDisplayUnits.bind(this))
             .onSet(this.onGetTemperatureDisplayUnits.bind(this));
 
-        // Set as primary service, as the parent class might have added additional services
-        this.thermostat.setPrimaryService(true);
+
+        // Add secondary services
+
+        this.addSecondaryServices(this.accessory.context.device.services.slice(1));
     }
 
     onGetCurrentState() {
@@ -150,7 +150,7 @@ class Thermostat extends Accessory {
                 const hkrtsoll = Math.round(Math.max(8, Math.min(28, value)) * 2);
 
                 // Set our own (internal) state
-                this.accessory.context.device.state.TargetHeatingCoolingState = (hkrtsoll/2);
+                this.accessory.context.device.state.TargetTemperature = (hkrtsoll/2);
 
                 this.smarthome.send("sethkrtsoll", { ain: this.accessory.context.device.identifier, param: hkrtsoll }).then(() => {
                     this.log.info(`${this.accessory.displayName} was set to ${(hkrtsoll/2)}°C`);
@@ -179,13 +179,17 @@ class Thermostat extends Accessory {
 
         super.update(state);
 
+
         // Get current values
+
         let CurrentHeatingCoolingState = this.accessory.context.device.state.CurrentHeatingCoolingState;
         let TargetHeatingCoolingState = this.accessory.context.device.state.TargetHeatingCoolingState;
         let CurrentTemperature = this.accessory.context.device.state.CurrentTemperature;
         let TargetTemperature = this.accessory.context.device.state.TargetTemperature;
 
-        // Set CurrentTemperature
+
+        // CurrentTemperature
+
         // FRITZ!Box values: 0-120 (= 0-60°C) in steps of 0.5°C, 254 = ON , 253 = OFF, may be empty
         const hkr_tist = state["hkr"]?.["tist"];
         if (hkr_tist >= 0 && hkr_tist <= 120) {
@@ -198,7 +202,9 @@ class Thermostat extends Accessory {
             }
         }
 
-        // Set TargetTemperature
+
+        // TargetTemperature
+
         // FRITZ!Box values: 16-56 (= 8-28°C) in steps of 0.5°C, 254 = ON, 253 = OFF, may be empty
         const hkr_tsoll = state["hkr"]?.["tsoll"];
         if (hkr_tsoll >= 16 && hkr_tsoll <= 56) {
@@ -212,7 +218,9 @@ class Thermostat extends Accessory {
             TargetHeatingCoolingState = 3;
         }
 
+
         // CurrentHeatingCoolingState
+
         CurrentHeatingCoolingState = (CurrentTemperature !== TargetTemperature) ? ((CurrentTemperature > TargetTemperature) ? 2 : 1) : 0;
 
 

@@ -218,9 +218,10 @@ class FritzBox {
     }
 
     /**
-     * Creates a unique (HomeKit friendly) name from a proposed
-     * switch name to not have two switches with identical names
-     * @param {string} name - Proposed switch name
+     * Creates a unique (HomeKit friendly) name from a proposed switch name to
+     * not have two switches with identical names
+     * @param   {string} name - Proposed switch name
+     * @returns {string}      - Unique name
      */
     createUniqueName(name) {
 
