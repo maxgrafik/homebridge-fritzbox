@@ -253,12 +253,13 @@ class FritzBoxPlatform {
                     if (item["DeflectionToNumber"] !== "") {
                         deflection.push({
                             id      : item["DeflectionId"],
-                            name    : `Redirect calls to ${item["DeflectionToNumber"]}`,
+                            name    : "Call Deflection",
                             subtype : `FritzBox-CD-${item["DeflectionId"]}`,
                             enabled : item["Enable"],
                             service : serviceType,
                             actions : ["GetDeflection", "SetDeflectionEnable"],
                             args    : { "NewDeflectionId": "id", "NewEnable": "enabled" },
+                            configuredName : `Redirect to ${item["DeflectionToNumber"]}`,
                         });
                     }
                 }
@@ -277,21 +278,21 @@ class FritzBoxPlatform {
 
             if (await tr064.hasService(serviceType)) {
 
-                this.smarthome = new SmartHome(this.log, this.config, fritzboxURL);
+                this.Smarthome = new SmartHome(this.log, this.config, fritzboxURL);
 
                 // Get security port if SSL enabled (AHA-HTTP-Interface, chapter 2)
                 if (this.config.advanced?.SSL) {
                     const securityPort = await tr064.send("urn:dslforum-org:service:X_AVM-DE_RemoteAccess:1", "GetInfo");
                     if (securityPort?.["NewPort"] !== undefined) {
-                        this.smarthome.setSecurityPort(securityPort["NewPort"]);
+                        this.Smarthome.setSecurityPort(securityPort["NewPort"]);
                     }
                 }
 
                 if (defaultUser !== null) {
-                    this.smarthome.setDefaultUser(defaultUser);
+                    this.Smarthome.setDefaultUser(defaultUser);
                 }
 
-                const state = await this.smarthome.getState();
+                const state = await this.Smarthome.getState();
 
                 // Save device list for plugin support
                 this.saveDeviceList(state);
@@ -309,7 +310,7 @@ class FritzBoxPlatform {
 
                         if (deviceDescription === undefined) {
                             this.log.warn("Device not in database: %s", device["@productname"]);
-                            deviceDescription = this.smarthome.getServicesAndCharacteristics(device);
+                            deviceDescription = this.Smarthome.getServicesAndCharacteristics(device);
                         }
 
                         if (deviceDescription.services.length === 0) {
@@ -351,7 +352,7 @@ class FritzBoxPlatform {
 
                 // If a lightbulb uses mapped colors, get ColorDefaults
                 if (useMappedColor) {
-                    await this.smarthome.getColorDefaults();
+                    await this.Smarthome.getColorDefaults();
                 }
 
                 this.log.debug("[Interview] Found %s connected smart home device(s)", smartHomeAccessories.length);
@@ -385,6 +386,13 @@ class FritzBoxPlatform {
             const existingFritzBox = this.accessories.get(fritzbox.UUID);
             if (existingFritzBox) {
                 this.log.info("Restoring %s", existingFritzBox.displayName);
+
+                // Restore configuredName (if any)
+                for (const s of fritzbox.device.switches) {
+                    const match = existingFritzBox.context.device.switches.find(e => e.subtype === s.subtype);
+                    match && match.configuredName && (s.configuredName = match.configuredName);
+                }
+
                 existingFritzBox.context.device = fritzbox.device;
                 this.api.updatePlatformAccessories([existingFritzBox]);
                 this.FritzBox = new FritzBox(this, existingFritzBox, tr064);
@@ -414,12 +422,12 @@ class FritzBoxPlatform {
                 this.log.info("Restoring accessory %s", existingAccessory.displayName);
                 existingAccessory.context.device = smartHomeAccessory.device;
                 this.api.updatePlatformAccessories([existingAccessory]);
-                this.SmartHomeAccessories.push(new(AccessoryClass)(this, existingAccessory, this.smarthome));
+                this.SmartHomeAccessories.push(new(AccessoryClass)(this, existingAccessory, this.Smarthome));
             } else {
                 this.log.info("Creating accessory %s", smartHomeAccessory.displayName);
                 const accessory = new this.api.platformAccessory(smartHomeAccessory.displayName, smartHomeAccessory.UUID);
                 accessory.context.device = smartHomeAccessory.device;
-                this.SmartHomeAccessories.push(new(AccessoryClass)(this, accessory, this.smarthome));
+                this.SmartHomeAccessories.push(new(AccessoryClass)(this, accessory, this.Smarthome));
                 this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory]);
             }
             this.discoveredCacheUUIDs.push(smartHomeAccessory.UUID);
@@ -445,6 +453,10 @@ class FritzBoxPlatform {
 
     async updateDevices() {
 
+        if (!this.Smarthome) {
+            return;
+        }
+
         const updateInterval = Math.max(5, (this.config.update?.smarthome || 15));
 
         const timeSinceLastUpdate = (Date.now() - this.lastUpdate) / 1000;
@@ -459,7 +471,7 @@ class FritzBoxPlatform {
         let state = null;
 
         try {
-            state = await this.smarthome.getState();
+            state = await this.Smarthome.getState();
         } catch (error) {
             this.log.warn("An error occured while trying to update the state of smart home devices. Will try again");
             this.log.debug(error.message || error);

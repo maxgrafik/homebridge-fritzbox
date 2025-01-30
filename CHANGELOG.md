@@ -1,5 +1,9 @@
 # Change Log
 
+## v0.2.1 (2025-01-30)
+
+- Bugfix
+
 ## v0.2.0 (2025-01-29)
 
 - Changed the way how secondary services for smart home devices are added, because sometimes HomeKit doesn't play nice

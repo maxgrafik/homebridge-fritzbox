@@ -1,6 +1,5 @@
 .DS_Store
 .nova
 node_modules/
+releases
 resources
-src/utils/manufacturers.xml
-src/utils/zigbee-helper.js
