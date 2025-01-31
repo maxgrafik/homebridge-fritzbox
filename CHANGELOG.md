@@ -1,5 +1,9 @@
 # Change Log
 
+## v0.2.2 (2025-01-31)
+
+- Refined the service discovery for unknown smart home devices
+
 ## v0.2.1 (2025-01-30)
 
 - Bugfix

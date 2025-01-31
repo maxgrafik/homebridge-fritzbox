@@ -20,9 +20,12 @@ class TemperatureSensor extends Accessory {
         super(platform, accessory);
 
         // TemperatureSensors can already be handled by parent class
-        // so we add it as secondary service without having a primary
 
-        this.addSecondaryServices(this.accessory.context.device.services);
+        // Add first, so it becomes the primary service
+        this.addSecondaryServices(["TemperatureSensor"]);
+
+        // Add any other as secondary service
+        this.addSecondaryServices(this.accessory.context.device.services.slice(1));
     }
 
     /**

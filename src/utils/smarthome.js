@@ -296,8 +296,10 @@ class SmartHome {
         }
 
         // Pick ANY other that matches as secondary service
+        // starting with sensors, because the first services
+        // are considered mutually exclusive
         const secondaryServices = [];
-        for (const service of services) {
+        for (const service of services.slice(5)) {
             const match = deviceReportedServices.find((element) => element === service);
             if (match && !primaryService.includes(match)) {
                 secondaryServices.push(match);
@@ -307,6 +309,13 @@ class SmartHome {
         deviceReportedServices = primaryService.concat(secondaryServices);
 
 
+        // Add Battery service (if any)
+
+        if (Object.hasOwn(device, "batterylow") || Object.hasOwn(device, "battery")) {
+            deviceReportedServices.push("Battery");
+        }
+
+
         // Get characteristics
 
         let deviceReportedCharacteristics = [];
@@ -314,6 +323,14 @@ class SmartHome {
         if (deviceReportedServices.includes("Lightbulb")) {
             deviceReportedCharacteristics = this.getLightbulbCharacteristics(device);
         }
+
+
+        // Add BatteryLevel characteristic (if available)
+
+        if (Object.hasOwn(device, "battery")) {
+            deviceReportedCharacteristics.push("BatteryLevel");
+        }
+
 
         return {
             services: deviceReportedServices,

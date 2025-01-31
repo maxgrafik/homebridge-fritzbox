@@ -303,13 +303,9 @@ class FritzBoxPlatform {
                 for (const device of deviceList) {
                     if (device["present"] === "1") {
 
-                        let services = [];
-                        let characteristics = [];
-
                         let deviceDescription = DeviceDB[device["@productname"]];
-
                         if (deviceDescription === undefined) {
-                            this.log.warn("Device not in database: %s", device["@productname"]);
+                            this.log.debug("Device not in database: %s", device["@productname"]);
                             deviceDescription = this.Smarthome.getServicesAndCharacteristics(device);
                         }
 
@@ -317,18 +313,7 @@ class FritzBoxPlatform {
                             continue;
                         }
 
-                        services = deviceDescription.services;
-                        characteristics = deviceDescription.characteristics;
-
-                        if (
-                            (Object.hasOwn(device, "batterylow") || Object.hasOwn(device, "battery"))
-                            && !services.includes("Battery")
-                        ) {
-                            services.push("Battery");
-                            if (Object.hasOwn(device, "battery")) { characteristics.push("BatteryLevel"); }
-                        }
-
-                        if (services.includes("Lightbulb") && characteristics.includes("UseMappedColor")) {
+                        if (deviceDescription.services.includes("Lightbulb") && deviceDescription.characteristics.includes("UseMappedColor")) {
                             useMappedColor = true;
                         }
 
@@ -342,8 +327,8 @@ class FritzBoxPlatform {
                                 serialNo       : device["@identifier"],
                                 model          : device["@productname"] || "Generic Device",
                                 fwversion      : device["@fwversion"],
-                                services       : services,
-                                characteristics: characteristics,
+                                services       : deviceDescription.services,
+                                characteristics: deviceDescription.characteristics,
                                 state          : {},
                             },
                         });
