@@ -15,11 +15,11 @@ const Accessory = require("./accessory");
  */
 class Thermostat extends Accessory {
 
-    constructor(platform, accessory, smarthome) {
+    constructor(platform, accessory, aha) {
 
         super(platform, accessory);
 
-        this.smarthome = smarthome;
+        this.aha = aha;
 
 
         // Thermostat
@@ -96,27 +96,39 @@ class Thermostat extends Accessory {
         // Set our own (internal) state
         this.accessory.context.device.state.TargetHeatingCoolingState = value;
 
-        // Send command ... I have no idea if this works
-        try {
-            if (value === 0) {
-                this.smarthome.send("sethkrtsoll", { ain: this.accessory.context.device.identifier, param: 253 }).then(() => {
-                    this.log.info(`${this.accessory.displayName} was switched off`);
-                });
-            } else if (value === 3) {
-                const temperature = Math.round(Math.max(8, Math.min(28, this.accessory.context.device.state.TargetTemperature)) * 2) / 2;
-                this.smarthome.send("sethkrtsoll", { ain: this.accessory.context.device.identifier, param: (temperature * 2) }).then(() => {
-                    this.log.info(`${this.accessory.displayName} was switched on`);
-                });
-            } else {
-                return;
-            }
+        if (value === 0) {
 
-        } catch (error) {
+            // Send command
+            this.aha.send("sethkrtsoll", { ain: this.accessory.context.device.identifier, param: 253 }).then(() => {
 
-            // Revert internal state in case of error
-            this.accessory.context.device.state.TargetHeatingCoolingState = currentValue;
+                this.log.info(`${this.accessory.displayName} was switched off`);
 
-            this.log.error(`${this.accessory.displayName}:`, error.message || error);
+            }).catch((error) => {
+
+                // Revert internal state in case of error
+                this.accessory.context.device.state.TargetHeatingCoolingState = currentValue;
+                this.thermostat.updateCharacteristic(this.Characteristic.TargetHeatingCoolingState, currentValue);
+
+                this.log.error(`${this.accessory.displayName}:`, error.message || error);
+            });
+
+        } else if (value === 3) {
+
+            const temperature = Math.round(Math.max(8, Math.min(28, this.accessory.context.device.state.TargetTemperature)) * 2) / 2;
+
+            // Send command
+            this.aha.send("sethkrtsoll", { ain: this.accessory.context.device.identifier, param: (temperature * 2) }).then(() => {
+
+                this.log.info(`${this.accessory.displayName} was switched on`);
+
+            }).catch((error) => {
+
+                // Revert internal state in case of error
+                this.accessory.context.device.state.TargetHeatingCoolingState = currentValue;
+                this.thermostat.updateCharacteristic(this.Characteristic.TargetHeatingCoolingState, currentValue);
+
+                this.log.error(`${this.accessory.displayName}:`, error.message || error);
+            });
         }
     }
 
@@ -143,26 +155,26 @@ class Thermostat extends Accessory {
             // Get our own (internal) state in case we need to undo
             const currentValue = this.accessory.context.device.state.TargetTemperature;
 
+            // hkrtsoll parameter: 16-56 (= 8-28°C) in steps of 0.5°C, 254 = ON, 253 = OFF
+            const hkrtsoll = Math.round(Math.max(8, Math.min(28, value)) * 2);
+
+            // Set our own (internal) state
+            this.accessory.context.device.state.TargetTemperature = (hkrtsoll/2);
+
             // Send command
-            try {
+            this.aha.send("sethkrtsoll", { ain: this.accessory.context.device.identifier, param: hkrtsoll }).then(() => {
 
-                // hkrtsoll parameter: 16-56 (= 8-28°C) in steps of 0.5°C, 254 = ON, 253 = OFF
-                const hkrtsoll = Math.round(Math.max(8, Math.min(28, value)) * 2);
+                this.log.info(`${this.accessory.displayName} was set to ${(hkrtsoll/2)}°C`);
 
-                // Set our own (internal) state
-                this.accessory.context.device.state.TargetTemperature = (hkrtsoll/2);
-
-                this.smarthome.send("sethkrtsoll", { ain: this.accessory.context.device.identifier, param: hkrtsoll }).then(() => {
-                    this.log.info(`${this.accessory.displayName} was set to ${(hkrtsoll/2)}°C`);
-                });
-
-            } catch (error) {
+            }).catch((error) => {
 
                 // Revert internal state in case of error
                 this.accessory.context.device.state.TargetTemperature = currentValue;
+                this.thermostat.updateCharacteristic(this.Characteristic.TargetTemperature, currentValue);
 
                 this.log.error(`${this.accessory.displayName}:`, error.message || error);
-            }
+            });
+
         }, 800);
     }
 

@@ -15,11 +15,11 @@ const Accessory = require("./accessory");
  */
 class Switch extends Accessory {
 
-    constructor(platform, accessory, smarthome) {
+    constructor(platform, accessory, aha) {
 
         super(platform, accessory);
 
-        this.smarthome = smarthome;
+        this.aha = aha;
 
 
         // Switch
@@ -28,7 +28,7 @@ class Switch extends Accessory {
 
         this.switchService.setCharacteristic(this.Characteristic.Name, this.accessory.displayName);
 
-        this.accessory.context.device.state.On = 0;
+        this.accessory.context.device.state.On = false;
         this.switchService.getCharacteristic(this.Characteristic.On)
             .onGet(this.getOn.bind(this))
             .onSet(this.setOn.bind(this));
@@ -50,7 +50,7 @@ class Switch extends Accessory {
 
         // Send switch on/off command
         const switchcmd = value ? "setswitchon" : "setswitchoff";
-        this.smarthome.send(switchcmd, { ain: this.accessory.context.device.identifier }).then((response) => {
+        this.aha.send(switchcmd, { ain: this.accessory.context.device.identifier }).then((response) => {
 
             const newValue = parseInt(response) ? true : false;
 
@@ -60,6 +60,7 @@ class Switch extends Accessory {
 
             // Revert internal state in case of error
             this.accessory.context.device.state.On = !this.accessory.context.device.state.On;
+            this.switchService.updateCharacteristic(this.Characteristic.On, this.accessory.context.device.state.On);
 
             this.log.error(`${this.accessory.displayName}:`, error.message || error);
         });

@@ -9,17 +9,20 @@
 
 const Accessory = require("./accessory");
 
+const FritzBoxHelper = require("../utils/fritzbox-helper");
+const HomeKitHelper = require("../utils/homekit-helper");
+
 /**
  * Lightbulb
  * @extends Accessory
  */
 class Lightbulb extends Accessory {
 
-    constructor(platform, accessory, smarthome) {
+    constructor(platform, accessory, aha) {
 
         super(platform, accessory);
 
-        this.smarthome = smarthome;
+        this.aha = aha;
 
 
         // Lightbulb
@@ -28,7 +31,7 @@ class Lightbulb extends Accessory {
 
         this.lightbulb.setCharacteristic(this.Characteristic.Name, this.accessory.displayName);
 
-        this.accessory.context.device.state.On = 0;
+        this.accessory.context.device.state.On = false;
         this.lightbulb.getCharacteristic(this.Characteristic.On)
             .onGet(this.getOn.bind(this))
             .onSet(this.setOn.bind(this));
@@ -69,9 +72,24 @@ class Lightbulb extends Accessory {
         }
 
 
+        // Adaptive Lighting
+
+        // Only if lightbulb supports Brightness AND ColorTemperature
+        if (
+            this.accessory.context.device.characteristics.includes("Brightness") &&
+            this.accessory.context.device.characteristics.includes("ColorTemperature")
+        ) {
+            this.adaptiveLightingController = new this.api.hap.AdaptiveLightingController(this.lightbulb, {
+                controllerMode: this.api.hap.AdaptiveLightingControllerMode.AUTOMATIC,
+            });
+            this.accessory.configureController(this.adaptiveLightingController);
+        }
+
+
         // Add secondary services
 
         this.addSecondaryServices(this.accessory.context.device.services.slice(1));
+
     }
 
     getOn() {
@@ -85,7 +103,7 @@ class Lightbulb extends Accessory {
 
         // Send switch on/off command
         const switchcmd = value ? "setswitchon" : "setswitchoff";
-        this.smarthome.send(switchcmd, { ain: this.accessory.context.device.identifier }).then((response) => {
+        this.aha.send(switchcmd, { ain: this.accessory.context.device.identifier }).then((response) => {
 
             const newValue = parseInt(response) ? true : false;
 
@@ -95,6 +113,7 @@ class Lightbulb extends Accessory {
 
             // Revert internal state in case of error
             this.accessory.context.device.state.On = !this.accessory.context.device.state.On;
+            this.lightbulb.updateCharacteristic(this.Characteristic.On, this.accessory.context.device.state.On);
 
             this.log.error(`${this.accessory.displayName}:`, error.message || error);
         });
@@ -118,23 +137,24 @@ class Lightbulb extends Accessory {
             // Get our own (internal) state in case we need to undo
             const currentValue = this.accessory.context.device.state.Brightness;
 
-            try {
+            // Set our own (internal) state
+            this.accessory.context.device.state.Brightness = value;
 
-                // Set our own (internal) state
-                this.accessory.context.device.state.Brightness = value;
+            // Send command
+            this.aha.send("setlevelpercentage", { ain: this.accessory.context.device.identifier, level: value }).then(() => {
 
-                this.smarthome.send("setlevelpercentage", { ain: this.accessory.context.device.identifier, level: value }).then(() => {
-                    this.log.info(`${this.accessory.displayName} was set to ${value}%`);
-                });
+                this.log.info(`${this.accessory.displayName} was set to ${value}%`);
 
-            } catch (error) {
+            }).catch((error) => {
 
                 // Revert internal state in case of error
                 this.accessory.context.device.state.Brightness = currentValue;
+                this.lightbulb.updateCharacteristic(this.Characteristic.Brightness, currentValue);
 
                 this.log.error(`${this.accessory.displayName}:`, error.message || error);
-            }
-        }, 250);
+            });
+
+        }, 400);
     }
 
     onGetColorTemperature() {
@@ -155,30 +175,50 @@ class Lightbulb extends Accessory {
             // Get our own (internal) state in case we need to undo
             const currentValue = this.accessory.context.device.state.ColorTemperature;
 
-            try {
+            // Convert to FRITZ!Box value (Kelvin)
+            let Kelvin = HomeKitHelper.MiredToKelvin(value);
+            if (this.accessory.context.device.characteristics.includes("UseMappedColor")) {
+                Kelvin = FritzBoxHelper.getClosestColorTemperature(value);
+            }
 
-                // Convert to FRITZ!Box value (Kelvin)
-                let Kelvin = this.MiredToKelvin(value);
-                if (this.accessory.context.device.characteristics.includes("UseMappedColor")) {
-                    Kelvin = this.getClosestColorTemperature(value);
+            // Set our own (internal) state
+            this.accessory.context.device.state.ColorTemperature = HomeKitHelper.KelvinToMired(Kelvin);
+
+            // There seems to be no command for setting an unmapped color temperature
+            this.aha.send("setcolortemperature", { ain: this.accessory.context.device.identifier, temperature: Kelvin }).then(() => {
+
+                this.log.info(`Changed color temperature of ${this.accessory.displayName} to ${Kelvin}K`);
+
+                // Adjust Hue/Saturation (if available)
+                if (this.accessory.context.device.characteristics.includes("Hue")) {
+
+                    // Convert from Mired to Hue/Saturation (optionally map)
+                    const color = this.api.hap.ColorUtils.colorTemperatureToHueAndSaturation(value);
+                    if (this.accessory.context.device.characteristics.includes("UseMappedColor")) {
+                        const HSV = FritzBoxHelper.getClosestColor([color.hue, color.saturation, this.accessory.context.device.state.Brightness]);
+                        color.hue = HSV[0];
+                        color.saturation = Math.round(HSV[1] / 2.55);
+                    }
+
+                    this.accessory.context.device.state.Hue = color.hue;
+                    this.accessory.context.device.state.Saturation = color.saturation;
+
+                    if (this.adaptiveLightingController) {
+                        this.lightbulb.updateCharacteristic(this.Characteristic.Hue, color.hue);
+                        this.lightbulb.updateCharacteristic(this.Characteristic.Saturation, color.saturation);
+                    }
                 }
 
-                // Set our own (internal) state
-                this.accessory.context.device.state.ColorTemperature = this.KelvinToMired(Kelvin);
-
-                // There seems to be no command for setting an unmapped color temperature
-                this.smarthome.send("setcolortemperature", { ain: this.accessory.context.device.identifier, temperature: Kelvin }).then(() => {
-                    this.log.info(`Changed color temperature of ${this.accessory.displayName} to ${Kelvin}K`);
-                });
-
-            } catch (error) {
+            }).catch((error) => {
 
                 // Revert internal state in case of error
                 this.accessory.context.device.state.ColorTemperature = currentValue;
+                this.lightbulb.updateCharacteristic(this.Characteristic.ColorTemperature, currentValue);
 
                 this.log.error(`${this.accessory.displayName}:`, error.message || error);
-            }
-        }, 250);
+            });
+
+        }, 400);
     }
 
     onGetHue() {
@@ -205,44 +245,54 @@ class Lightbulb extends Accessory {
             const currentSaturation = this.accessory.context.device.state.Saturation;
             const currentBrightness = this.accessory.context.device.state.Brightness || 100;
 
-            try {
+            // Convert to FRITZ!Box HSV values ([0-359, 0-255, 0-255])
+            let Hue = Math.min(359, value);
+            let Saturation = Math.round(currentSaturation * 2.55);
+            let Brightness = Math.round(currentBrightness * 2.55);
 
-                // Convert to FRITZ!Box HSV values ([0-359, 0-255, 0-255])
-                let Hue = Math.min(359, value);
-                let Saturation = Math.round(currentSaturation * 2.55);
-                let Brightness = Math.round(currentBrightness * 2.55);
+            if (this.accessory.context.device.characteristics.includes("UseMappedColor")) {
+                const HSV = FritzBoxHelper.getClosestColor([value, currentSaturation, currentBrightness]);
+                Hue = HSV[0];
+                Saturation = HSV[1];
+                Brightness = HSV[2];
+            }
 
-                if (this.accessory.context.device.characteristics.includes("UseMappedColor")) {
-                    const HSV = this.getClosestColor([value, currentSaturation, currentBrightness]);
-                    Hue = HSV[0];
-                    Saturation = HSV[1];
-                    Brightness = HSV[2];
+            // Set our own (internal) state
+            this.accessory.context.device.state.Hue = Hue;
+            this.accessory.context.device.state.Saturation = Math.round(Saturation / 2.55);
+            if (this.accessory.context.device.characteristics.includes("Brightness")) {
+                this.accessory.context.device.state.Brightness = Math.round(Brightness / 2.55);
+            }
+
+            // Send command
+            const switchcmd = this.accessory.context.device.characteristics.includes("UseMappedColor") ? "setcolor" : "setunmappedcolor";
+            this.aha.send(switchcmd, { ain: this.accessory.context.device.identifier, hue: Hue, saturation: Saturation }).then(() => {
+
+                this.log.info(`Changed color of ${this.accessory.displayName}`);
+
+                // When a write happens to Hue/Saturation characteristic it is advised
+                // to set the internal value of the ColorTemperature to the minimal
+                if (this.accessory.context.device.characteristics.includes("ColorTemperature")) {
+                    this.accessory.context.device.state.ColorTemperature = 140;
                 }
 
-                // Set our own (internal) state
-                this.accessory.context.device.state.Hue = Hue;
-                this.accessory.context.device.state.Saturation = Math.round(Saturation / 2.55);
-                if (this.accessory.context.device.state.Brightness !== undefined) {
-                    this.accessory.context.device.state.Brightness = Math.round(Brightness / 2.55);
-                }
-
-                const switchcmd = this.accessory.context.device.characteristics.includes("UseMappedColor") ? "setcolor" : "setunmappedcolor";
-                this.smarthome.send(switchcmd, { ain: this.accessory.context.device.identifier, hue: Hue, saturation: Saturation }).then(() => {
-                    this.log.info(`Changed color of ${this.accessory.displayName}`);
-                });
-
-            } catch (error) {
+            }).catch((error) => {
 
                 // Revert internal state in case of error
                 this.accessory.context.device.state.Hue = currentHue;
                 this.accessory.context.device.state.Saturation = currentSaturation;
-                if (this.accessory.context.device.state.Brightness !== undefined) {
+                this.lightbulb.updateCharacteristic(this.Characteristic.Hue, currentHue);
+                this.lightbulb.updateCharacteristic(this.Characteristic.Saturation, currentSaturation);
+
+                if (this.accessory.context.device.characteristics.includes("Brightness")) {
                     this.accessory.context.device.state.Brightness = currentBrightness;
+                    this.lightbulb.updateCharacteristic(this.Characteristic.Brightness, currentBrightness);
                 }
 
                 this.log.error(`${this.accessory.displayName}:`, error.message || error);
-            }
-        }, 250);
+            });
+
+        }, 400);
     }
 
     onGetSaturation() {
@@ -269,112 +319,54 @@ class Lightbulb extends Accessory {
             const currentSaturation = this.accessory.context.device.state.Saturation;
             const currentBrightness = this.accessory.context.device.state.Brightness || 100;
 
-            try {
+            // Convert to FRITZ!Box HSV values ([0-359, 0-255, 0-255])
+            let Hue = Math.min(359, currentHue);
+            let Saturation = Math.round(value * 2.55);
+            let Brightness = Math.round(currentBrightness * 2.55);
 
-                // Convert to FRITZ!Box HSV values ([0-359, 0-255, 0-255])
-                let Hue = Math.min(359, currentHue);
-                let Saturation = Math.round(value * 2.55);
-                let Brightness = Math.round(currentBrightness * 2.55);
+            if (this.accessory.context.device.characteristics.includes("UseMappedColor")) {
+                const HSV = FritzBoxHelper.getClosestColor([currentHue, value, currentBrightness]);
+                Hue = HSV[0];
+                Saturation = HSV[1];
+                Brightness = HSV[2];
+            }
 
-                if (this.accessory.context.device.characteristics.includes("UseMappedColor")) {
-                    const HSV = this.getClosestColor([currentHue, value, currentBrightness]);
-                    Hue = HSV[0];
-                    Saturation = HSV[1];
-                    Brightness = HSV[2];
+            // Set our own (internal) state
+            this.accessory.context.device.state.Hue = Hue;
+            this.accessory.context.device.state.Saturation = Math.round(Saturation / 2.55);
+            if (this.accessory.context.device.characteristics.includes("Brightness")) {
+                this.accessory.context.device.state.Brightness = Math.round(Brightness / 2.55);
+            }
+
+            // Send command
+            const switchcmd = this.accessory.context.device.characteristics.includes("UseMappedColor") ? "setcolor" : "setunmappedcolor";
+            this.aha.send(switchcmd, { ain: this.accessory.context.device.identifier, hue: Hue, saturation: Saturation }).then(() => {
+
+                this.log.info(`Changed color of ${this.accessory.displayName}`);
+
+                // When a write happens to Hue/Saturation characteristic it is advised
+                // to set the internal value of the ColorTemperature to the minimal
+                if (this.accessory.context.device.characteristics.includes("ColorTemperature")) {
+                    this.accessory.context.device.state.ColorTemperature = 140;
                 }
 
-                // Set our own (internal) state
-                this.accessory.context.device.state.Hue = Hue;
-                this.accessory.context.device.state.Saturation = Math.round(Saturation / 2.55);
-                if (this.accessory.context.device.state.Brightness !== undefined) {
-                    this.accessory.context.device.state.Brightness = Math.round(Brightness / 2.55);
-                }
-
-                const switchcmd = this.accessory.context.device.characteristics.includes("UseMappedColor") ? "setcolor" : "setunmappedcolor";
-                this.smarthome.send(switchcmd, { ain: this.accessory.context.device.identifier, hue: Hue, saturation: Saturation }).then(() => {
-                    this.log.info(`Changed color of ${this.accessory.displayName}`);
-                });
-
-            } catch (error) {
+            }).catch((error) => {
 
                 // Revert internal state in case of error
                 this.accessory.context.device.state.Hue = currentHue;
                 this.accessory.context.device.state.Saturation = currentSaturation;
-                if (this.accessory.context.device.state.Brightness !== undefined) {
+                this.lightbulb.updateCharacteristic(this.Characteristic.Hue, currentHue);
+                this.lightbulb.updateCharacteristic(this.Characteristic.Saturation, currentSaturation);
+
+                if (this.accessory.context.device.characteristics.includes("Brightness")) {
                     this.accessory.context.device.state.Brightness = currentBrightness;
+                    this.lightbulb.updateCharacteristic(this.Characteristic.Brightness, currentBrightness);
                 }
 
                 this.log.error(`${this.accessory.displayName}:`, error.message || error);
-            }
-        }, 250);
-    }
+            });
 
-
-    // ColorTemperature in HomeKit
-    // reciprocal megakelvin (mirek): M = 1000000/K
-    // @see https://en.wikipedia.org/wiki/Mired
-
-    MiredToKelvin(M) {
-        return Math.round(1000000/M);
-    }
-
-    KelvinToMired(K) {
-        return Math.round(1000000/K);
-    }
-
-    /**
-     * Get closest FRITZ!Box HSV color
-     * @param   {Array} colorHK - HomeKit HSV values ([0-360, 0-100, 0-100])
-     * @returns {Array}         - FRITZ!Box HSV values ([0-359, 0-255, 0-255])
-     */
-    getClosestColor(colorHK) {
-
-        // https://stackoverflow.com/questions/35113979/calculate-distance-between-colors-in-hsv-space#39113477
-
-        // Normalize HomeKit values
-        const hueHK = colorHK[0] * (Math.PI * 2) / 360;
-        const satHK = colorHK[1] / 100;
-        const valHK = colorHK[2] / 100;
-
-        // Get squared cartesian distance
-        const distanceHSV = (colorFB) => {
-            // Normalize FRITZ!Box values
-            const hueFB = colorFB[0] * (Math.PI * 2) / 360;
-            const satFB = colorFB[1] / 255;
-            const valFB = colorFB[2] /255;
-            return (
-                Math.pow((Math.sin(hueHK)*satHK*valHK)-(Math.sin(hueFB)*satFB*valFB), 2) +
-                Math.pow((Math.cos(hueHK)*satHK*valHK)-(Math.cos(hueFB)*satFB*valFB), 2) +
-                Math.pow(valHK-valFB, 2)
-            );
-        };
-
-        // Find closest color
-        const distances = [];
-        this.smarthome.ColorDefaults.forEach((color, index) => {
-            const distance = distanceHSV(color);
-            distances.push({ distance: distance, index: index });
-        });
-        distances.sort((a, b) => a.distance - b.distance);
-
-        // Return matching FRITZ!Box color default
-        return this.smarthome.ColorDefaults[distances[0].index];
-    }
-
-    /**
-     * Get closest FRITZ!Box color temperature
-     * @param   {number} temp - Temperature in Mired
-     * @returns {number}      - Temperature in Kelvin
-     */
-    getClosestColorTemperature(temp) {
-
-        // Convert Mired to Kelvin
-        const tempKelvin = this.MiredToKelvin(temp);
-
-        // Find closest FRITZ!Box color temperature
-        return this.smarthome.TemperatureDefaults.reduce((prev, curr) => {
-            return (Math.abs(curr - tempKelvin) < Math.abs(prev - tempKelvin) ? curr : prev);
-        });
+        }, 400);
     }
 
     /**
@@ -402,6 +394,24 @@ class Lightbulb extends Accessory {
         this.lightbulb.updateCharacteristic(this.Characteristic.On, this.accessory.context.device.state.On);
 
 
+        // Brightness
+
+        if (this.accessory.context.device.characteristics.includes("Brightness")) {
+
+            let Brightness = this.accessory.context.device.state.Brightness;
+            if (state["levelcontrol"]?.["levelpercentage"] !== undefined) {
+                Brightness = parseInt(state["levelcontrol"]["levelpercentage"]);
+            } else if (state["levelcontrol"]?.["level"] !== undefined) {
+                Brightness = Math.round(parseInt(state["levelcontrol"]["level"]) / 2.55);
+            } else {
+                // oops!
+            }
+
+            this.accessory.context.device.state.Brightness = Brightness;
+            this.lightbulb.updateCharacteristic(this.Characteristic.Brightness, this.accessory.context.device.state.Brightness);
+        }
+
+
         // ColorTemperature
 
         if (this.accessory.context.device.characteristics.includes("ColorTemperature")) {
@@ -409,14 +419,14 @@ class Lightbulb extends Accessory {
             let ColorTemperature = this.accessory.context.device.state.ColorTemperature;
             if (state["colorcontrol"]?.["temperature"] !== undefined) {
                 ColorTemperature = parseInt(state["colorcontrol"]["temperature"]);
-                ColorTemperature = this.KelvinToMired(ColorTemperature);
+                ColorTemperature = HomeKitHelper.KelvinToMired(ColorTemperature);
             } else {
                 // oops!
             }
 
             if (this.accessory.context.device.characteristics.includes("UseMappedColor")) {
-                ColorTemperature = this.getClosestColorTemperature(ColorTemperature);
-                ColorTemperature = this.KelvinToMired(ColorTemperature);
+                ColorTemperature = FritzBoxHelper.getClosestColorTemperature(ColorTemperature);
+                ColorTemperature = HomeKitHelper.KelvinToMired(ColorTemperature);
             }
 
             this.accessory.context.device.state.ColorTemperature = ColorTemperature;
@@ -448,7 +458,7 @@ class Lightbulb extends Accessory {
             }
 
             if (this.accessory.context.device.characteristics.includes("UseMappedColor")) {
-                const HSV = this.getClosestColor([
+                const HSV = FritzBoxHelper.getClosestColor([
                     Hue,
                     Saturation,
                     this.accessory.context.device.state.Brightness || 100
@@ -465,23 +475,6 @@ class Lightbulb extends Accessory {
             this.lightbulb.updateCharacteristic(this.Characteristic.Saturation, this.accessory.context.device.state.Saturation);
         }
 
-
-        // Brightness
-
-        if (this.accessory.context.device.characteristics.includes("Brightness")) {
-
-            let Brightness = this.accessory.context.device.state.Brightness;
-            if (state["levelcontrol"]?.["levelpercentage"] !== undefined) {
-                Brightness = parseInt(state["levelcontrol"]["levelpercentage"]);
-            } else if (state["levelcontrol"]?.["level"] !== undefined) {
-                Brightness = Math.round(parseInt(state["levelcontrol"]["level"]) / 2.55);
-            } else {
-                // oops!
-            }
-
-            this.accessory.context.device.state.Brightness = Brightness;
-            this.lightbulb.updateCharacteristic(this.Characteristic.Brightness, this.accessory.context.device.state.Brightness);
-        }
 
         this.api.updatePlatformAccessories([this.accessory]);
     }

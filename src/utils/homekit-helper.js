@@ -33,4 +33,33 @@ function getHomeKitFriendlyName(name) {
     return HomeKitFriendlyName.replace(/[^\p{L}\p{N}]*$/gu, "");
 }
 
-exports.getHomeKitFriendlyName = getHomeKitFriendlyName;
+/**
+ * ColorTemperature in HomeKit:
+ * Reciprocal megakelvin (mirek): M = 1000000/K
+ * @see https://en.wikipedia.org/wiki/Mired
+ */
+
+/**
+ * Convert Mired to Kelvin
+ * @param   {number} M - Color temperature in Mired
+ * @returns {number}   - Color temperature in Kelvin
+ */
+function MiredToKelvin(M) {
+    return Math.round(1000000/M);
+}
+
+/**
+ * Convert Kelvin to Mired
+ * @param   {number} K - Color temperature in Kelvin
+ * @returns {number}   - Color temperature in Mired
+ */
+function KelvinToMired(K) {
+    return Math.round(1000000/K);
+}
+
+
+module.exports = {
+    getHomeKitFriendlyName,
+    MiredToKelvin,
+    KelvinToMired,
+};

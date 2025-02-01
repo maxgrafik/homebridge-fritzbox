@@ -130,6 +130,11 @@ class FritzBox {
             // Revert internal switch state in case of error
             switchConfig.enabled = !switchConfig.enabled;
 
+            const service = this.services.get(switchConfig.subtype);
+            if (service !== undefined) {
+                service.updateCharacteristic(this.Characteristic.On, switchConfig.enabled);
+            }
+
             this.log.error(`${switchConfig.configuredName}:`, error.message || error);
         });
     }
@@ -185,6 +190,9 @@ class FritzBox {
                         service.updateCharacteristic(this.Characteristic.On, switchConfig.enabled);
                     }
                 }
+            }).catch((error) => {
+                this.log.warn("An error occured while trying to update the state of the FRITZ!Box. Will try again");
+                this.log.debug(error.message || error);
             });
         }
 
@@ -201,6 +209,9 @@ class FritzBox {
                             .updateCharacteristic(this.Characteristic.FirmwareRevision, info[key]);
                     }
                 }
+            }).catch((error) => {
+                this.log.warn("An error occured while trying to update the state of the FRITZ!Box. Will try again");
+                this.log.debug(error.message || error);
             });
             this.lastFWUpdate = Date.now();
         }

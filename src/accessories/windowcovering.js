@@ -15,11 +15,11 @@ const Accessory = require("./accessory");
  */
 class WindowCovering extends Accessory {
 
-    constructor(platform, accessory, smarthome) {
+    constructor(platform, accessory, aha) {
 
         super(platform, accessory);
 
-        this.smarthome = smarthome;
+        this.aha = aha;
 
 
         // WindowCovering
@@ -84,25 +84,24 @@ class WindowCovering extends Accessory {
             // Get our own (internal) state in case we need to undo
             const currentValue = this.accessory.context.device.state.TargetPosition;
 
-            // Send command
-            try {
+            // Set our own (internal) state
+            this.accessory.context.device.state.TargetPosition = value;
 
-                // Set our own (internal) state
-                this.accessory.context.device.state.TargetPosition = value;
+            // setlevel: { level: 0-255 (0-100%) }
+            // setlevelpercentage: { level: 0-100 (0-100%) }
+            this.aha.send("setlevelpercentage", { ain: this.accessory.context.device.identifier, level: value }).then(() => {
 
-                // setlevel: { level: 0-255 (0-100%) }
-                // setlevelpercentage: { level: 0-100 (0-100%) }
-                this.smarthome.send("setlevelpercentage", { ain: this.accessory.context.device.identifier, level: value }).then(() => {
-                    this.log.info(`Setting ${this.accessory.displayName} to ${value}%`);
-                });
+                this.log.info(`Setting ${this.accessory.displayName} to ${value}%`);
 
-            } catch (error) {
+            }).catch((error) => {
 
                 // Revert internal state in case of error
                 this.accessory.context.device.state.TargetPosition = currentValue;
+                this.windowCovering.updateCharacteristic(this.Characteristic.TargetPosition, currentValue);
 
                 this.log.error(`${this.accessory.displayName}:`, error.message || error);
-            }
+            });
+
         }, 800);
     }
 
@@ -153,10 +152,12 @@ class WindowCovering extends Accessory {
 
         this.accessory.context.device.state.CurrentPosition = CurrentPosition;
         this.accessory.context.device.state.PositionState = PositionState;
+        this.accessory.context.device.state.TargetPosition = TargetPosition;
         this.accessory.context.device.state.ObstructionDetected = ObstructionDetected;
 
         this.windowCovering.updateCharacteristic(this.Characteristic.CurrentPosition, CurrentPosition);
         this.windowCovering.updateCharacteristic(this.Characteristic.PositionState, PositionState);
+        this.windowCovering.updateCharacteristic(this.Characteristic.TargetPosition, TargetPosition);
         this.windowCovering.updateCharacteristic(this.Characteristic.ObstructionDetected, ObstructionDetected);
 
         this.api.updatePlatformAccessories([this.accessory]);

@@ -15,7 +15,9 @@ const fsPromises = require("node:fs/promises");
 
 const Network = require("./utils/network");
 const TR064 = require("./utils/tr064");
-const SmartHome = require("./utils/smarthome");
+const AHA = require("./utils/aha");
+
+const FritzBoxHelper = require("./utils/fritzbox-helper");
 const HomeKitHelper = require("./utils/homekit-helper");
 
 const FritzBox = require("./accessories/fritzbox");
@@ -38,30 +40,16 @@ class FritzBoxPlatform {
         this.discoveredCacheUUIDs = [];
 
         this.FritzBox = null;
-        this.SmartHome = null;
         this.SmartHomeAccessories = [];
 
         this.lastUpdate = 0;
 
         api.on("didFinishLaunching", () => {
-            this.discoverDevices().then((isSetupOK) => {
+            this.discoverDevices().then(() => {
 
                 // clean up
                 this.accessories.clear();
                 this.discoveredCacheUUIDs = [];
-
-                if (isSetupOK) {
-
-                    this.updateDevices();
-
-                } else {
-
-                    this.FritzBox = null;
-                    this.SmartHome = null;
-                    this.SmartHomeAccessories = [];
-
-                    this.log.error("Plugin stopped");
-                }
 
             }).catch((error) => {
 
@@ -69,7 +57,6 @@ class FritzBoxPlatform {
                 this.accessories.clear();
                 this.discoveredCacheUUIDs = [];
                 this.FritzBox = null;
-                this.SmartHome = null;
                 this.SmartHomeAccessories = [];
 
                 this.log.error(error.message || error);
@@ -271,6 +258,7 @@ class FritzBoxPlatform {
         //! SmartHome
 
         const smartHomeAccessories = [];
+        const aha = new AHA(this.log, this.config, fritzboxURL);
 
         if (this.config.services?.SmartHome) {
 
@@ -278,26 +266,22 @@ class FritzBoxPlatform {
 
             if (await tr064.hasService(serviceType)) {
 
-                this.Smarthome = new SmartHome(this.log, this.config, fritzboxURL);
-
                 // Get security port if SSL enabled (AHA-HTTP-Interface, chapter 2)
                 if (this.config.advanced?.SSL) {
                     const securityPort = await tr064.send("urn:dslforum-org:service:X_AVM-DE_RemoteAccess:1", "GetInfo");
                     if (securityPort?.["NewPort"] !== undefined) {
-                        this.Smarthome.setSecurityPort(securityPort["NewPort"]);
+                        aha.setSecurityPort(securityPort["NewPort"]);
                     }
                 }
 
                 if (defaultUser !== null) {
-                    this.Smarthome.setDefaultUser(defaultUser);
+                    aha.setDefaultUser(defaultUser);
                 }
 
-                const state = await this.Smarthome.getState();
+                const state = await aha.send("getdevicelistinfos");
 
                 // Save device list for plugin support
                 this.saveDeviceList(state);
-
-                let useMappedColor = false;
 
                 const deviceList = state?.["devicelist"]?.["device"] || [];
                 for (const device of deviceList) {
@@ -306,7 +290,7 @@ class FritzBoxPlatform {
                         let deviceDescription = DeviceDB[device["@productname"]];
                         if (deviceDescription === undefined) {
                             this.log.debug("Device not in database: %s", device["@productname"]);
-                            deviceDescription = this.Smarthome.getServicesAndCharacteristics(device);
+                            deviceDescription = FritzBoxHelper.getServicesAndCharacteristics(device);
                         }
 
                         if (deviceDescription.services.length === 0) {
@@ -314,7 +298,7 @@ class FritzBoxPlatform {
                         }
 
                         if (deviceDescription.services.includes("Lightbulb") && deviceDescription.characteristics.includes("UseMappedColor")) {
-                            useMappedColor = true;
+                            await FritzBoxHelper.getColorDefaults(aha);
                         }
 
                         smartHomeAccessories.push({
@@ -333,11 +317,6 @@ class FritzBoxPlatform {
                             },
                         });
                     }
-                }
-
-                // If a lightbulb uses mapped colors, get ColorDefaults
-                if (useMappedColor) {
-                    await this.Smarthome.getColorDefaults();
                 }
 
                 this.log.debug("[Interview] Found %s connected smart home device(s)", smartHomeAccessories.length);
@@ -370,7 +349,7 @@ class FritzBoxPlatform {
         if (fritzbox.device.switches.length > 0) {
             const existingFritzBox = this.accessories.get(fritzbox.UUID);
             if (existingFritzBox) {
-                this.log.info("Restoring %s", existingFritzBox.displayName);
+                this.log.debug("Restoring %s", existingFritzBox.displayName);
 
                 // Restore configuredName (if any)
                 for (const s of fritzbox.device.switches) {
@@ -404,15 +383,15 @@ class FritzBoxPlatform {
 
             const existingAccessory = this.accessories.get(smartHomeAccessory.UUID);
             if (existingAccessory) {
-                this.log.info("Restoring accessory %s", existingAccessory.displayName);
+                this.log.debug("Restoring accessory %s", existingAccessory.displayName);
                 existingAccessory.context.device = smartHomeAccessory.device;
                 this.api.updatePlatformAccessories([existingAccessory]);
-                this.SmartHomeAccessories.push(new(AccessoryClass)(this, existingAccessory, this.Smarthome));
+                this.SmartHomeAccessories.push(new(AccessoryClass)(this, existingAccessory, aha));
             } else {
                 this.log.info("Creating accessory %s", smartHomeAccessory.displayName);
                 const accessory = new this.api.platformAccessory(smartHomeAccessory.displayName, smartHomeAccessory.UUID);
                 accessory.context.device = smartHomeAccessory.device;
-                this.SmartHomeAccessories.push(new(AccessoryClass)(this, accessory, this.Smarthome));
+                this.SmartHomeAccessories.push(new(AccessoryClass)(this, accessory, aha));
                 this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory]);
             }
             this.discoveredCacheUUIDs.push(smartHomeAccessory.UUID);
@@ -423,7 +402,7 @@ class FritzBoxPlatform {
 
         for (const [uuid, accessory] of this.accessories) {
             if (!this.discoveredCacheUUIDs.includes(uuid)) {
-                this.log.info("Removing accessory %s from cache", accessory.displayName);
+                this.log.debug("Removing accessory %s from cache", accessory.displayName);
                 this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory]);
             }
         }
@@ -433,14 +412,16 @@ class FritzBoxPlatform {
 
         this.log.info("Ready");
 
-        return true;
+
+        // If we have any smart home accessories
+        // -> start update loop
+
+        if (this.SmartHomeAccessories.length !== 0) {
+            this.updateDevices(aha);
+        }
     }
 
-    async updateDevices() {
-
-        if (!this.Smarthome) {
-            return;
-        }
+    async updateDevices(aha) {
 
         const updateInterval = Math.max(5, (this.config.update?.smarthome || 15));
 
@@ -456,7 +437,7 @@ class FritzBoxPlatform {
         let state = null;
 
         try {
-            state = await this.Smarthome.getState();
+            state = await aha.send("getdevicelistinfos");
         } catch (error) {
             this.log.warn("An error occured while trying to update the state of smart home devices. Will try again");
             this.log.debug(error.message || error);
@@ -473,8 +454,10 @@ class FritzBoxPlatform {
             }
         }
 
+        this.lastUpdate = Date.now();
+
         this.updateTimer = setInterval(
-            this.updateDevices.bind(this),
+            this.updateDevices.bind(this, aha),
             updateInterval * 1000
         );
     }
