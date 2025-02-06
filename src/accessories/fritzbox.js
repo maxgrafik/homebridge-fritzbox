@@ -111,6 +111,11 @@ class FritzBox {
 
     onSet(switchConfig, value) {
 
+        // Skip, if value doesn't change
+        if (value === switchConfig.enabled) {
+            return;
+        }
+
         // Set our own (internal) state
         switchConfig.enabled = value;
 
@@ -148,7 +153,7 @@ class FritzBox {
         switchConfig.configuredName = configuredName;
     }
 
-    update() {
+    async update() {
 
         const timeSinceLastUpdate = (Date.now() - this.lastUpdate) / 1000;
         if (timeSinceLastUpdate <= this.updateInterval) {
@@ -178,11 +183,12 @@ class FritzBox {
                 args[key] = switchConfig[value];
             }
 
-            this.tr064.send(serviceType, actionName, args).then((info) => {
-                if (info !== null) {
+            try {
+                const state = await this.tr064.send(serviceType, actionName, args);
+                if (state !== null) {
                     for (const [key, value] of Object.entries(switchConfig.args)) {
-                        if (info[key] !== undefined) {
-                            switchConfig[value] = info[key];
+                        if (state[key] !== undefined) {
+                            switchConfig[value] = state[key];
                         }
                     }
                     const service = this.services.get(switchConfig.subtype);
@@ -190,10 +196,10 @@ class FritzBox {
                         service.updateCharacteristic(this.Characteristic.On, switchConfig.enabled);
                     }
                 }
-            }).catch((error) => {
+            } catch (error) {
                 this.log.warn("An error occured while trying to update the state of the FRITZ!Box. Will try again");
                 this.log.debug(error.message || error);
-            });
+            }
         }
 
 
@@ -201,18 +207,19 @@ class FritzBox {
 
         const timeSinceLastFWUpdate = (Date.now() - this.lastFWUpdate) / 1000;
         if (timeSinceLastFWUpdate > (24 * 60 * 60 * 1000)) {
-            this.tr064.send(this.accessory.context.device.service, this.accessory.context.device.action).then((info) => {
-                if (info !== null) {
+            try {
+                const state = await this.tr064.send(this.accessory.context.device.service, this.accessory.context.device.action);
+                if (state !== null) {
                     for (const [key, value] of Object.entries(this.accessory.context.device.args)) {
-                        this.accessory.context.device[value] = info[key];
+                        this.accessory.context.device[value] = state[key];
                         this.accessory.getService(this.Service.AccessoryInformation)
-                            .updateCharacteristic(this.Characteristic.FirmwareRevision, info[key]);
+                            .updateCharacteristic(this.Characteristic.FirmwareRevision, state[key]);
                     }
                 }
-            }).catch((error) => {
+            } catch (error) {
                 this.log.warn("An error occured while trying to update the state of the FRITZ!Box. Will try again");
                 this.log.debug(error.message || error);
-            });
+            }
             this.lastFWUpdate = Date.now();
         }
 

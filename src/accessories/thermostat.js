@@ -90,6 +90,11 @@ class Thermostat extends Accessory {
 
     onSetTargetState(value) {
 
+        // Skip, if value doesn't change
+        if (value === this.accessory.context.device.state.TargetHeatingCoolingState) {
+            return;
+        }
+
         // Get our own (internal) state in case we need to undo
         const currentValue = this.accessory.context.device.state.TargetHeatingCoolingState;
 
@@ -141,6 +146,11 @@ class Thermostat extends Accessory {
     }
 
     onSetTargetTemperature(value) {
+
+        // Skip, if value doesn't change
+        if (value === this.accessory.context.device.state.TargetTemperature) {
+            return;
+        }
 
         // Everything that is some kind of "level" should be defered
         // to avoid "flooding" the FRITZ!Box with intermediate values

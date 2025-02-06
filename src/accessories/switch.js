@@ -45,6 +45,11 @@ class Switch extends Accessory {
 
     setOn(value) {
 
+        // Skip, if value doesn't change
+        if (value === this.accessory.context.device.state.On) {
+            return;
+        }
+
         // Set our own (internal) state
         this.accessory.context.device.state.On = value;
 

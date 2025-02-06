@@ -2,7 +2,7 @@
   "private": true,
   "displayName": "FRITZ!Box",
   "name": "homebridge-fritzbox",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "FRITZ!Box for Homebridge",
   "main": "src/index.js",
   "author": "Hendrik Meinl",

@@ -71,6 +71,11 @@ class WindowCovering extends Accessory {
 
     onSetTargetPosition(value) {
 
+        // Skip, if value doesn't change
+        if (value === this.accessory.context.device.state.TargetPosition) {
+            return;
+        }
+
         // Everything that is some kind of "level" should be defered
         // to avoid "flooding" the FRITZ!Box with intermediate values
         // maybe 800ms is still too short

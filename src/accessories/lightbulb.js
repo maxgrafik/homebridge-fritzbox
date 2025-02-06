@@ -98,6 +98,11 @@ class Lightbulb extends Accessory {
 
     setOn(value) {
 
+        // Skip, if value doesn't change
+        if (value === this.accessory.context.device.state.On) {
+            return;
+        }
+
         // Set our own (internal) state
         this.accessory.context.device.state.On = value;
 
@@ -124,6 +129,11 @@ class Lightbulb extends Accessory {
     }
 
     onSetBrightness(value) {
+
+        // Skip, if value doesn't change
+        if (value === this.accessory.context.device.state.Brightness) {
+            return;
+        }
 
         // Everything that is some kind of "level" should be defered
         // to avoid "flooding" the FRITZ!Box with intermediate values
@@ -162,6 +172,11 @@ class Lightbulb extends Accessory {
     }
 
     onSetColorTemperature(value) {
+
+        // Skip, if value doesn't change
+        if (value === this.accessory.context.device.state.ColorTemperature) {
+            return;
+        }
 
         // Everything that is some kind of "level" should be defered
         // to avoid "flooding" the FRITZ!Box with intermediate values
@@ -226,6 +241,11 @@ class Lightbulb extends Accessory {
     }
 
     onSetHue(value) {
+
+        // Skip, if value doesn't change
+        if (value === this.accessory.context.device.state.Hue) {
+            return;
+        }
 
         // Everything that is some kind of "level" should be defered
         // to avoid "flooding" the FRITZ!Box with intermediate values
@@ -300,6 +320,11 @@ class Lightbulb extends Accessory {
     }
 
     onSetSaturation(value) {
+
+        // Skip, if value doesn't change
+        if (value === this.accessory.context.device.state.Saturation) {
+            return;
+        }
 
         // Everything that is some kind of "level" should be defered
         // to avoid "flooding" the FRITZ!Box with intermediate values

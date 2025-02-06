@@ -1,5 +1,9 @@
 # Change Log
 
+## v0.2.4 (2025-02-06)
+
+- Minor bugfixes
+
 ## v0.2.3 (2025-02-02)
 
 - Bugfixes and code refactoring
