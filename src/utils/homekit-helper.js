@@ -20,17 +20,25 @@ function getHomeKitFriendlyName(name) {
     //
     // https://github.com/homebridge/HAP-NodeJS/pull/1054#issuecomment-2254133907
     // https://developer.apple.com/design/human-interface-guidelines/homekit#Help-people-choose-useful-names
+    //
+    // Update 2025-02-07
+    // https://github.com/homebridge/HAP-NodeJS/pull/1083
+    //
+    // /^[\p{L}\p{N}][\p{L}\p{N}\u2019 '.,-]*[\p{L}\p{N}\u2019]$/u
+    //
 
     let HomeKitFriendlyName = "";
 
-    const regex = /[\p{L}\p{N}][\p{L}\p{N} ']*/gu;
+    const regex = /[\p{L}\p{N}\u2019 '.,-]*/gu;
     const matches = name.matchAll(regex);
 
     for (const match of matches) {
         HomeKitFriendlyName += match[0];
     }
 
-    return HomeKitFriendlyName.replace(/[^\p{L}\p{N}]*$/gu, "");
+    return HomeKitFriendlyName
+        .replace(/^[^\p{L}\p{N}]*/u, "")
+        .replace(/[^\p{L}\p{N}\u2019]*$/u, "");
 }
 
 /**

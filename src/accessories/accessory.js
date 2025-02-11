@@ -24,6 +24,9 @@ class Accessory {
         this.Service = platform.api.hap.Service;
         this.Characteristic = platform.api.hap.Characteristic;
 
+        this.CustomService = platform.CustomTypes.Service;
+        this.CustomCharacteristic = platform.CustomTypes.Characteristic;
+
 
         // Accessory information
 
@@ -38,6 +41,28 @@ class Accessory {
 
         if (services.length === 0) {
             return;
+        }
+
+
+        // Energy Meter (if any)
+
+        if (services.includes("EnergyMeter")) {
+
+            this.energyMeter = this.accessory.getService(this.CustomService.EnergyMeter) || this.accessory.addService(this.CustomService.EnergyMeter);
+
+            this.energyMeter.setCharacteristic(this.Characteristic.Name, this.accessory.displayName);
+
+            this.accessory.context.device.state.Voltage = 0;
+            this.energyMeter.getCharacteristic(this.CustomCharacteristic.Voltage)
+                .onGet(this.onGetVoltage.bind(this));
+
+            this.accessory.context.device.state.Consumption = 0;
+            this.energyMeter.getCharacteristic(this.CustomCharacteristic.Consumption)
+                .onGet(this.onGetConsumption.bind(this));
+
+            this.accessory.context.device.state.TotalConsumption = 0;
+            this.energyMeter.getCharacteristic(this.CustomCharacteristic.TotalConsumption)
+                .onGet(this.onGetTotalConsumption.bind(this));
         }
 
 
@@ -94,6 +119,18 @@ class Accessory {
         }
     }
 
+    onGetVoltage() {
+        return this.accessory.context.device.state.Voltage;
+    }
+
+    onGetConsumption() {
+        return this.accessory.context.device.state.Consumption;
+    }
+
+    onGetTotalConsumption() {
+        return this.accessory.context.device.state.TotalConsumption;
+    }
+
     onGetCurrentTemperature() {
         return this.accessory.context.device.state.CurrentTemperature;
     }
@@ -124,6 +161,21 @@ class Accessory {
             this.accessory.context.device.fwversion = fwversion;
             this.accessory.getService(this.Service.AccessoryInformation)
                 .updateCharacteristic(this.Characteristic.FirmwareRevision, fwversion);
+        }
+
+
+        // Energy Meter
+
+        if (this.energyMeter !== undefined) {
+            const Voltage = Math.round(parseInt(state["powermeter"]?.["voltage"] || 0) / 100) / 10;
+            const Consumption = Math.round(parseInt(state["powermeter"]?.["power"] || 0) / 100) / 10;
+            const TotalConsumption = Math.round(parseInt(state["powermeter"]?.["energy"] || 0) / 10) / 100;
+            this.accessory.context.device.state.Voltage = Voltage;
+            this.accessory.context.device.state.Consumption = Consumption;
+            this.accessory.context.device.state.TotalConsumption = TotalConsumption;
+            this.energyMeter.updateCharacteristic(this.CustomCharacteristic.Voltage, Voltage);
+            this.energyMeter.updateCharacteristic(this.CustomCharacteristic.Consumption, Consumption);
+            this.energyMeter.updateCharacteristic(this.CustomCharacteristic.TotalConsumption, TotalConsumption);
         }
 
 

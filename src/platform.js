@@ -19,6 +19,7 @@ const AHA = require("./utils/aha");
 
 const FritzBoxHelper = require("./utils/fritzbox-helper");
 const HomeKitHelper = require("./utils/homekit-helper");
+const HomeKitCustom = require("./utils/homekit-custom");
 
 const FritzBox = require("./accessories/fritzbox");
 const Accessories = require("./accessories");
@@ -41,6 +42,7 @@ class FritzBoxPlatform {
 
         this.FritzBox = null;
         this.SmartHomeAccessories = [];
+        this.CustomTypes = new HomeKitCustom(api);
 
         this.lastUpdate = 0;
 

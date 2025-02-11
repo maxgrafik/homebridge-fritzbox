@@ -2,6 +2,7 @@
     "FRITZ!Smart Energy 200": {
         "services": [
             "Outlet",
+            "EnergyMeter",
             "TemperatureSensor"
         ],
         "characteristics": []

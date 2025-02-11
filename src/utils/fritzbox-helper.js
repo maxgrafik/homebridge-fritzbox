@@ -35,6 +35,7 @@ class FritzBoxHelper {
             "Outlet",
             "Lightbulb",
             "Switch",
+            "EnergyMeter",
             "ContactSensor",
             "LeakSensor",
             "MotionSensor",
@@ -122,7 +123,7 @@ class FritzBoxHelper {
             null,                 // Bit  4: AlarmSensor ??? whatever this is
             null,                 // Bit  5: AVM Button
             "Thermostat",         // Bit  6: AVM Thermostat
-            null,                 // Bit  7: AVM Energy Meter
+            "EnergyMeter",        // Bit  7: AVM Energy Meter
             "TemperatureSensor",  // Bit  8: Temperature Sensor
             "Outlet",             // Bit  9: AVM Outlet
             null,                 // Bit 10: AVM DECT Repeater
