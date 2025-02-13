@@ -86,8 +86,8 @@ class TR064 {
 
     /**
      * Get SCPD XML
-     * @param   {URL}     url - URL of the service description XML
-     * @returns {Promise}     - Parsed XML as Object
+     * @param   {URL}             url - URL of the service description XML
+     * @returns {Promise<Object>}     - Service description
      * @private
      */
     async get(url) {
@@ -121,11 +121,11 @@ class TR064 {
 
     /**
      * Maka a SOAP request
-     * @param   {URL}     url         - TR-064 controlURL
-     * @param   {string}  serviceType - Service type (urn:...)
-     * @param   {string}  actionName  - SOAP action
-     * @param   {?Object} actionArgs  - Arguments for SOAP action as key/value
-     * @returns {Promise}             - FRITZ!Box response
+     * @param   {URL}             url         - TR-064 controlURL
+     * @param   {string}          serviceType - Service type (urn:...)
+     * @param   {string}          actionName  - SOAP action
+     * @param   {?Object}         actionArgs  - Arguments as key/value
+     * @returns {Promise<Object>}             - FRITZ!Box response
      * @private
      */
     async post(url, serviceType, actionName, actionArgs = null) {
@@ -188,10 +188,10 @@ class TR064 {
     }
 
     /**
-     * Get our internal representaion of the service description
+     * Get our internal representation of the service description
      * or request it from FRITZ!Box
-     * @param   {string}  serviceType - Service type (urn:...)
-     * @returns {Promise}             - Service description (or null)
+     * @param   {string}                 serviceType - Service type (urn:...)
+     * @returns {Promise<(Object|null)>}             - Service description
      * @private
      */
     async getService(serviceType) {
@@ -297,8 +297,8 @@ class TR064 {
 
     /**
      * Check, if the given service exists on this FRITZ!Box
-     * @param   {string}  serviceType - Service type (urn:...)
-     * @returns {Promise}             - Boolean
+     * @param   {string}           serviceType - Service type (urn:...)
+     * @returns {Promise<boolean>}             - yes/no
      * @public
      */
     async hasService(serviceType) {
@@ -315,10 +315,10 @@ class TR064 {
 
     /**
      * Public method for making SOAP requests
-     * @param   {string}  serviceType - Service type (urn:...)
-     * @param   {string}  actionName  - SOAP action
-     * @param   {?Object} actionArgs  - Arguments for SOAP action as key/value
-     * @returns {Promise}             - FRITZ!Box response (or null)
+     * @param   {string}                 serviceType - Service type (urn:...)
+     * @param   {string}                 actionName  - SOAP action
+     * @param   {?Object}                actionArgs  - Arguments as key/value
+     * @returns {Promise<(Object|null)>}             - FRITZ!Box response
      * @public
      */
     async send(serviceType, actionName, actionArgs = null) {
@@ -414,9 +414,9 @@ class TR064 {
     }
 
     /**
-     * Convert all values of the object to the respective type
-     * @param {Object} obj      - The object
-     * @param {string} dataType - Data type from service state table
+     * Convert all values of the object to the required type
+     * @param {Object} obj       - The object
+     * @param {Object} dataTypes - Data types from service state table
      * @private
      */
     convertFromDataTypeObj(obj, dataTypes) {
@@ -439,7 +439,7 @@ class TR064 {
     }
 
     /**
-     * Converts a value FOR a SOAP request into the expected type
+     * Converts a value FOR a SOAP request to the required type
      * @param {*}      value    - The value
      * @param {string} dataType - Data type from service state table
      * @returns {*}             - Converted value
@@ -533,7 +533,7 @@ class TR064 {
 
     /**
      * Sets the HTTPS port
-     * @param {number} port - Port number
+     * @param {number} port
      * @public
      */
     setSecurityPort(port) {

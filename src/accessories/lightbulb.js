@@ -408,14 +408,14 @@ class Lightbulb extends Accessory {
 
         let isOn = this.accessory.context.device.state.On;
         if (state["switch"]?.["state"] !== undefined) {
-            isOn = parseInt(state["switch"]["state"]);
+            isOn = parseInt(state["switch"]["state"]) === 1;
         } else if (state["simpleonoff"]?.["state"] !== undefined) {
-            isOn = parseInt(state["simpleonoff"]["state"]);
+            isOn = parseInt(state["simpleonoff"]["state"]) === 1;
         } else {
             // oops!
         }
 
-        this.accessory.context.device.state.On = (isOn === 1) ? true : false;
+        this.accessory.context.device.state.On = isOn;
         this.lightbulb.updateCharacteristic(this.Characteristic.On, this.accessory.context.device.state.On);
 
 

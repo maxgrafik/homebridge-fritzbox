@@ -19,7 +19,8 @@ class Network {
 
     /**
      * Discover FRITZ! devices on the network
-     * @returns {Promise} - Array of device urls as returned from ssdp.discover
+     * @returns {Promise<URL[]>} - Device urls as returned from ssdp#discover
+     * @public
      */
     async discover() {
 
@@ -40,9 +41,10 @@ class Network {
     }
 
     /**
-     * Check if device is mesh master or cable box
-     * @param   {URL}     url - Location as returned from ssdp.discover
-     * @returns {Promise}     - true/false
+     * Check, if device is mesh master or cable box
+     * @param   {URL}              url - Location as returned from ssdp#discover
+     * @returns {Promise<boolean>}     - true/false
+     * @private
      */
     async isMeshMaster(url) {
 
@@ -74,8 +76,9 @@ class Network {
 
     /**
      * Get jason_boxinfo.xml
-     * @param   {URL}     url - Location as returned from ssdp.discover
-     * @returns {Promise}     - Contents of jason_boxinfo.xml as Object
+     * @param   {URL}             url - Location as returned from ssdp#discover
+     * @returns {Promise<Object>}     - Contents of jason_boxinfo.xml
+     * @private
      */
     async getBoxInfo(url) {
 

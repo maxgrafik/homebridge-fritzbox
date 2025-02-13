@@ -17,11 +17,11 @@ class FritzBoxHelper {
     }
 
     /**
-    * Get HomeKit services and characteristics for unknown devices
-    * @param   {Object} device - Device description from getdevicelistinfos
-    * @returns {Object}        - Device services[] and characteristics[]
-    * @public
-    */
+     * Get HomeKit services and characteristics for unknown devices
+     * @param   {Object} device - Device node from getdevicelistinfos XML
+     * @returns {{services: string[], characteristics: string[]}}
+     * @public
+     */
     getServicesAndCharacteristics(device) {
 
         const bitmask = parseInt(device["@functionbitmask"]);
@@ -108,11 +108,11 @@ class FritzBoxHelper {
     }
 
     /**
-    * Map FRITZ!Box device types to Homebridge services
-    * @param   {number} bitmask - Bitmask describing device capabilities
-    * @returns {Array}          - Array of Homebridge services
-    * @private
-    */
+     * Map FRITZ!Box device types to Homebridge services
+     * @param   {number}   bitmask - Bitmask describing device capabilities
+     * @returns {string[]}         - Homebridge/Custom services (may be empty)
+     * @private
+     */
     getServicesFromBitmask(bitmask) {
 
         const services = [
@@ -144,11 +144,11 @@ class FritzBoxHelper {
     }
 
     /**
-    * Map FRITZ!Box HAN-FUN unit types to Homebridge service
-    * @param   {number} unitType - HAN-FUN unit type
-    * @returns {Array}           - 1 element Array with Homebridge service or empty
-    * @private
-    */
+     * Map FRITZ!Box HAN-FUN unit types to Homebridge service
+     * @param   {number}   unitType - HAN-FUN unit type
+     * @returns {string[]}          - Homebridge service (may be empty)
+     * @private
+     */
     getServiceFromUnitType(unitType) {
 
         // HAN-FUN Unit Types
@@ -184,11 +184,11 @@ class FritzBoxHelper {
     }
 
     /**
-    * Return Homebridge lightbulb characteristics
-    * @param   {Object} device - Device description from getdevicelistinfos
-    * @returns {Array}         - Array of Homebridge characteristics
-    * @private
-    */
+     * Return Homebridge lightbulb characteristics
+     * @param   {Object}   device - Device node from getdevicelistinfos XML
+     * @returns {string[]}        - Homebridge characteristics (may be empty)
+     * @private
+     */
     getLightbulbCharacteristics(device) {
 
         const characteristics = [];
@@ -227,10 +227,10 @@ class FritzBoxHelper {
     }
 
     /**
-    * Get ColorDefaults for colored Lightbulbs
-    * @param {class} aha - Instance of AHA module
-    * @public
-    */
+     * Get ColorDefaults from FRITZ!Box for colored lightbulbs
+     * @param  {AHA} aha - Instance of AHA class
+     * @public
+     */
     async getColorDefaults(aha) {
 
         // Don't load twice
@@ -258,11 +258,11 @@ class FritzBoxHelper {
     }
 
     /**
-    * Get closest FRITZ!Box HSV color
-    * @param   {Array} colorHK - HomeKit HSV values ([0-360, 0-100, 0-100])
-    * @returns {Array}         - FRITZ!Box HSV values ([0-359, 0-255, 0-255])
-    * @public
-    */
+     * Get closest FRITZ!Box HSV color
+     * @param   {number[]} colorHK - HomeKit HSV values [0-360, 0-100, 0-100]
+     * @returns {number[]}         - FRITZ!Box HSV values [0-359, 0-255, 0-255]
+     * @public
+     */
     getClosestColor(colorHK) {
 
         // https://stackoverflow.com/questions/35113979/calculate-distance-between-colors-in-hsv-space#39113477
@@ -300,11 +300,11 @@ class FritzBoxHelper {
     }
 
     /**
-    * Get closest FRITZ!Box color temperature
-    * @param   {number} temp - Temperature in Mired
-    * @returns {number}      - Temperature in Kelvin
-    * @public
-    */
+     * Get closest FRITZ!Box color temperature
+     * @param   {number} temp - Temperature in Mired
+     * @returns {number}      - Temperature in Kelvin
+     * @public
+     */
     getClosestColorTemperature(temp) {
 
         // Convert Mired to Kelvin

@@ -175,7 +175,7 @@ class FritzBox {
             // Note to self:
             // This actually includes arguments not needed for getting
             // the current state of this FRITZ!Box feature. We filter
-            // these out in TR064.send so that we don't need to know
+            // these out in TR064#send so that we don't need to know
             // about the required arguments for each action here.
 
             const args = {};
@@ -236,8 +236,8 @@ class FritzBox {
     }
 
     /**
-     * Creates a unique (HomeKit friendly) name from a proposed switch name to
-     * not have two switches with identical names
+     * Creates a unique (HomeKit friendly) name from a proposed switch name
+     * Avoids having two switches with identical names
      * @param   {string} name - Proposed switch name
      * @returns {string}      - Unique name
      */

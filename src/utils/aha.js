@@ -18,8 +18,9 @@ const { XMLParser } = require("fast-xml-parser");
 class AHA {
 
     /**
-     * Note: url is NOT a string!!
-     * @param {URL} url - TR-064 service description url
+     * @param       log
+     * @param       config
+     * @param {URL} url    - TR-064 service description url
      */
     constructor(log, config, url) {
 
@@ -49,8 +50,8 @@ class AHA {
 
     /**
      * Get session info containing the SID and/or challenge
-     * @param {URL} url   - The url including searchParams
-     * @returns {Promise} - The session info
+     * @param   {URL}             url - The loginURL including searchParams
+     * @returns {Promise<Object>}     - The session info
      * @private
      */
     async getSessionInfo(url) {
@@ -137,9 +138,9 @@ class AHA {
 
     /**
      * Send command
-     * @param {string}    switchcmd - The command to send
-     * @param {?Object}   params    - Command parameters as key/value
-     * @returns {Promise}           - FRITZ!Box response
+     * @param   {string}  switchcmd        - The command to send
+     * @param   {?Object} params           - Command parameters as key/value
+     * @returns {Promise<(string|Object)>} - FRITZ!Box response
      * @public
      */
     async send(switchcmd, params = null) {
@@ -195,8 +196,9 @@ class AHA {
 
     /**
      * Compose the URL for a command
-     * @param {string}  switchcmd - The command
-     * @param {?Object} params    - Command parameters as key/value
+     * @param   {string}  switchcmd - The command
+     * @param   {?Object} params    - Command parameters as key/value
+     * @returns {URL}               - The composed switchcmd url
      * @private
      */
     getURLForSwitchcmd(switchcmd, params = null) {
@@ -214,7 +216,7 @@ class AHA {
 
     /**
      * Sets the HTTPS port
-     * @param {number} port - Port number
+     * @param {number} port
      * @public
      */
     setSecurityPort(port) {

@@ -20,7 +20,8 @@ class SSDP {
 
     /**
      * Discover UPnP devices using ssdp protocol
-     * @returns {Promise} - Array of locations returned by devices
+     * @returns {Promise<string[]>} - Locations reported by devices
+     * @public
      */
     discover() {
         return new Promise((resolve, reject) => {

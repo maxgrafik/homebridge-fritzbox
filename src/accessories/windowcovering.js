@@ -134,7 +134,7 @@ class WindowCovering extends Accessory {
         // CurrentPosition
 
         if (state["levelcontrol"]?.["level"] !== undefined) {
-            CurrentPosition = Math.round(100 / 255 * parseInt(state["levelcontrol"]["level"]));
+            CurrentPosition = Math.round(parseInt(state["levelcontrol"]["level"]) / 2.55);
         } else if (state["levelcontrol"]?.["levelpercentage"] !== undefined) {
             CurrentPosition = parseInt(state["levelcontrol"]["levelpercentage"]);
         } else {
