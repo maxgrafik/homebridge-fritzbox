@@ -14,14 +14,12 @@
             "username": {
                 "type": "string",
                 "title": "Username",
-                "notitle": true,
                 "description": "Your FRITZ!Box username (if any)",
                 "placeholder": "Username"
             },
             "password": {
                 "type": "string",
                 "title": "Password",
-                "notitle": true,
                 "description": "Your FRITZ!Box password (if any)",
                 "placeholder": "Password"
             },
@@ -32,6 +30,7 @@
                         "type": "string",
                         "title": "WLAN",
                         "notitle": true,
+                        "labelHtmlClass": "visually-hidden",
                         "enum": ["none", "guest", "all"],
                         "default": "guest",
                         "required": true
