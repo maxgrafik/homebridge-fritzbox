@@ -1,5 +1,9 @@
 # Change Log
 
+## v0.3.1 (2025-11-08)
+
+- Bugfix
+
 ## v0.3.0 (2025-02-11)
 
 - Added energy metering as custom service

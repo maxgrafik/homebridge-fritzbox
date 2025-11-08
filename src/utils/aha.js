@@ -149,9 +149,21 @@ class AHA {
 
             await this.getSID();
 
-            const url = this.getURLForSwitchcmd(switchcmd, params);
+            let url = this.getURLForSwitchcmd(switchcmd, params);
 
             let response = await fetch(url);
+
+            if (!response.ok && response.status === 403) {
+
+                this.SID = "0000000000000000";
+                this.timestamp = 0;
+
+                await this.getSID();
+
+                url = this.getURLForSwitchcmd(switchcmd, params);
+
+                response = await fetch(url);
+            }
 
             if (!response.ok) {
                 throw new Error(`[AHA] Error sending command ${switchcmd}: ${response.status} ${response.statusText}`);
