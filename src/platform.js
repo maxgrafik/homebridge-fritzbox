@@ -345,10 +345,11 @@ class FritzBoxPlatform {
                 action       : "GetInfo",
                 args         : { "NewSoftwareVersion": "fwversion" },
                 switches     : [].concat(wlan, tam, deflection),
+                switchLED    : this.config.services?.LED || false,
             }
         };
 
-        if (fritzbox.device.switches.length > 0) {
+        if (fritzbox.device.switches.length > 0 || fritzbox.device.switchLED) {
             const existingFritzBox = this.accessories.get(fritzbox.UUID);
             if (existingFritzBox) {
                 this.log.debug("Restoring %s", existingFritzBox.displayName);

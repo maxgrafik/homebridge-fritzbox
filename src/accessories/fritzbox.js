@@ -75,6 +75,21 @@ class FritzBox {
         }
 
 
+        // LED switch (Experimental)
+
+        if (this.accessory.context.device.switchLED) {
+
+            const LEDSwitchService = this.accessory.getService("LEDs") || this.accessory.addService(this.Service.Switch, "LEDs", "FritzBox-LEDs");
+
+            this.accessory.context.device.switchLED_On = true;
+            LEDSwitchService.getCharacteristic(this.Characteristic.On)
+                .onGet(this.onGetLED.bind(this))
+                .onSet(this.onSetLED.bind(this));
+
+            this.services.set("FritzBox-LEDs", LEDSwitchService);
+        }
+
+
         // Clean up
 
         // Any previously created switch service will still be
@@ -103,6 +118,93 @@ class FritzBox {
             this.update.bind(this),
             this.updateInterval * 1000
         );
+    }
+
+    onGetLED() {
+        return this.accessory.context.device.switchLED_On;
+    }
+
+    onSetLED(value) {
+
+        // Skip, if value doesn't change
+        if (value === this.accessory.context.device.switchLED_On) {
+            return;
+        }
+
+        // Set our own (internal) state
+        this.accessory.context.device.switchLED_On = value;
+
+        const serviceType = "urn:dslforum-org:service:DeviceConfig:1";
+        const actionName = "X_AVM-DE_CreateUrlSID";
+
+        this.tr064.hasService(serviceType).then((hasService) => {
+
+            if (!hasService) {
+                throw new Error("[TR064] Cannot get SID");
+            }
+
+            this.tr064.send(serviceType, actionName).then((UrlSID) => {
+
+                const SID = /(?<=sid=)[A-Fa-f0-9]+/.exec(UrlSID?.["NewX_AVM-DE_UrlSID"] || "");
+
+                if (SID === null) {
+                    throw new Error("[TR064] Cannot get SID");
+                }
+
+                const headers = new Headers();
+                headers.append("Authorization", `AVM-SID ${SID[0]}`);
+                headers.append("Content-Type", "application/json");
+
+                let options = {
+                    method: "GET",
+                    headers: headers,
+                };
+
+                const deviceURL = this.tr064.deviceURL;
+                const url = `${deviceURL.protocol}//${deviceURL.hostname}/api/v0/generic/box`;
+
+                fetch(url, options).then((response) => {
+
+                    if (!response.ok) {
+                        throw new Error(`[TR064] GET: ${response.status} ${response.statusText}`);
+                    }
+
+                    response.json().then((data) => {
+
+                        // const ledDisplay = data["led_display"] || null;
+                        const ledDimMode = data["led_dim_mode"] || null;
+                        const ledDimBrightness = data["led_dim_brightness"] || null;
+
+                        const LEDsettings = { "led_display": (value === true ? "0" : "2") };
+                        if (ledDimMode !== null) { LEDsettings["led_dim_mode"] = ledDimMode; }
+                        if (ledDimBrightness !== null) { LEDsettings["led_dim_brightness"] = ledDimBrightness; }
+
+                        options = {
+                            method: "PUT",
+                            headers: headers,
+                            body: JSON.stringify(LEDsettings),
+                        };
+
+                        fetch(url, options).then(() => {
+                            this.log.info("LEDs switched %s", (value ? "on" : "off"));
+                        });
+
+                    });
+                });
+            });
+
+        }).catch((error) => {
+
+            // Revert internal state in case of error
+            this.accessory.context.device.switchLED_On = !this.accessory.context.device.switchLED_On;
+
+            const service = this.services.get("FritzBox-LEDs");
+            if (service !== undefined) {
+                service.updateCharacteristic(this.Characteristic.On, this.accessory.context.device.switchLED_On);
+            }
+
+            this.log.error("LEDs:", error.message || error);
+        });
     }
 
     onGet(switchConfig) {

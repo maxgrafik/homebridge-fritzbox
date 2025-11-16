@@ -49,6 +49,12 @@
                         "type": "boolean",
                         "title": "Smart home devices",
                         "default": true
+                    },
+                    "LED": {
+                        "type": "boolean",
+                        "title": "LEDs",
+                        "default": false,
+                        "description": "Caution: This option is experimental and uses an undocumented API. Expect this to fail anytime."
                     }
                 }
             },
@@ -128,7 +134,8 @@
                 },
                 "services.TAM",
                 "services.CallDeflection",
-                "services.SmartHome"
+                "services.SmartHome",
+                "services.LED"
             ]
         },
         {
