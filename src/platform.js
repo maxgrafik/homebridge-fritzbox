@@ -326,6 +326,25 @@ class FritzBoxPlatform {
         }
 
 
+        //! Undocumented API (Experimental)
+
+        const switchesAPI = [];
+
+        if (this.config.services?.LED) {
+            switchesAPI.push({
+                name    : "LEDs",
+                subtype : "FritzBox-API-LED",
+                enabled : true,
+                apiURL  : "/api/v0/generic/box",
+                args    : {
+                    "led_display": { "on": "0", "off": "2" },
+                    "led_dim_mode": null,
+                    "led_dim_brightness": null,
+                },
+            });
+        }
+
+
         // Configure Homebridge accessories
 
         this.log.info("Configuring accessories...");
@@ -345,11 +364,11 @@ class FritzBoxPlatform {
                 action       : "GetInfo",
                 args         : { "NewSoftwareVersion": "fwversion" },
                 switches     : [].concat(wlan, tam, deflection),
-                switchLED    : this.config.services?.LED || false,
+                switchesAPI  : switchesAPI,
             }
         };
 
-        if (fritzbox.device.switches.length > 0 || fritzbox.device.switchLED) {
+        if (fritzbox.device.switches.length > 0 || fritzbox.device.switchesAPI.length > 0) {
             const existingFritzBox = this.accessories.get(fritzbox.UUID);
             if (existingFritzBox) {
                 this.log.debug("Restoring %s", existingFritzBox.displayName);
@@ -357,6 +376,10 @@ class FritzBoxPlatform {
                 // Restore configuredName (if any)
                 for (const s of fritzbox.device.switches) {
                     const match = existingFritzBox.context.device.switches.find(e => e.subtype === s.subtype);
+                    match && match.configuredName && (s.configuredName = match.configuredName);
+                }
+                for (const s of fritzbox.device.switchesAPI) {
+                    const match = existingFritzBox.context.device.switchesAPI.find(e => e.subtype === s.subtype);
                     match && match.configuredName && (s.configuredName = match.configuredName);
                 }
 

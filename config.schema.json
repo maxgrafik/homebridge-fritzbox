@@ -53,8 +53,7 @@
                     "LED": {
                         "type": "boolean",
                         "title": "LEDs",
-                        "default": false,
-                        "description": "Caution: This option is experimental and uses an undocumented API. Expect this to fail anytime."
+                        "default": false
                     }
                 }
             },
@@ -135,7 +134,19 @@
                 "services.TAM",
                 "services.CallDeflection",
                 "services.SmartHome",
-                "services.LED"
+                {
+                    "type": "section",
+                    "title": "Experimental",
+                    "expandable": true,
+                    "expanded": false,
+                    "items": [
+                        {
+                            "type": "help",
+                            "helpvalue": "<p class='text-warning'>Caution: The following options use an undocumented API. Expect this to fail anytime.</p>"
+                        },
+                        "services.LED"
+                    ]
+                }
             ]
         },
         {

@@ -7,6 +7,7 @@
 
 "use strict";
 
+const FritzBoxAPI = require("../utils/fritzbox-api");
 const HomeKitHelper = require("../utils/homekit-helper");
 
 class FritzBox {
@@ -75,18 +76,35 @@ class FritzBox {
         }
 
 
-        // LED switch (Experimental)
+        // Experimental switches
 
-        if (this.accessory.context.device.switchLED) {
+        if (this.accessory.context.device.switchesAPI.length > 0) {
+            this.fritzBoxAPI = new FritzBoxAPI(this.tr064, this.log);
+        }
 
-            const LEDSwitchService = this.accessory.getService("LEDs") || this.accessory.addService(this.Service.Switch, "LEDs", "FritzBox-LEDs");
+        for (const switchConfig of this.accessory.context.device.switchesAPI) {
 
-            this.accessory.context.device.switchLED_On = true;
-            LEDSwitchService.getCharacteristic(this.Characteristic.On)
-                .onGet(this.onGetLED.bind(this))
-                .onSet(this.onSetLED.bind(this));
+            switchConfig.name = this.createUniqueName(switchConfig.name);
+            switchConfig.configuredName = switchConfig.configuredName ?? switchConfig.name;
 
-            this.services.set("FritzBox-LEDs", LEDSwitchService);
+            const switchService = this.accessory.getService(switchConfig.name) || this.accessory.addService(this.Service.Switch, switchConfig.name, switchConfig.subtype);
+
+            if (!switchService.testCharacteristic(this.Characteristic.ConfiguredName)) {
+                switchService.addOptionalCharacteristic(this.Characteristic.ConfiguredName);
+            }
+
+            switchService.getCharacteristic(this.Characteristic.ConfiguredName)
+                .updateValue(switchConfig.configuredName);
+
+            switchService.getCharacteristic(this.Characteristic.ConfiguredName)
+                .onGet(this.onGetConfiguredName.bind(this, switchConfig))
+                .onSet(this.onSetConfiguredName.bind(this, switchConfig));
+
+            switchService.getCharacteristic(this.Characteristic.On)
+                .onGet(this.onGet.bind(this, switchConfig))
+                .onSet(this.onSetAPI.bind(this, switchConfig));
+
+            this.services.set(switchConfig.subtype, switchService);
         }
 
 
@@ -120,93 +138,6 @@ class FritzBox {
         );
     }
 
-    onGetLED() {
-        return this.accessory.context.device.switchLED_On;
-    }
-
-    onSetLED(value) {
-
-        // Skip, if value doesn't change
-        if (value === this.accessory.context.device.switchLED_On) {
-            return;
-        }
-
-        // Set our own (internal) state
-        this.accessory.context.device.switchLED_On = value;
-
-        const serviceType = "urn:dslforum-org:service:DeviceConfig:1";
-        const actionName = "X_AVM-DE_CreateUrlSID";
-
-        this.tr064.hasService(serviceType).then((hasService) => {
-
-            if (!hasService) {
-                throw new Error("[TR064] Cannot get SID");
-            }
-
-            this.tr064.send(serviceType, actionName).then((UrlSID) => {
-
-                const SID = /(?<=sid=)[A-Fa-f0-9]+/.exec(UrlSID?.["NewX_AVM-DE_UrlSID"] || "");
-
-                if (SID === null) {
-                    throw new Error("[TR064] Cannot get SID");
-                }
-
-                const headers = new Headers();
-                headers.append("Authorization", `AVM-SID ${SID[0]}`);
-                headers.append("Content-Type", "application/json");
-
-                let options = {
-                    method: "GET",
-                    headers: headers,
-                };
-
-                const deviceURL = this.tr064.deviceURL;
-                const url = `${deviceURL.protocol}//${deviceURL.hostname}/api/v0/generic/box`;
-
-                fetch(url, options).then((response) => {
-
-                    if (!response.ok) {
-                        throw new Error(`[TR064] GET: ${response.status} ${response.statusText}`);
-                    }
-
-                    response.json().then((data) => {
-
-                        // const ledDisplay = data["led_display"] || null;
-                        const ledDimMode = data["led_dim_mode"] || null;
-                        const ledDimBrightness = data["led_dim_brightness"] || null;
-
-                        const LEDsettings = { "led_display": (value === true ? "0" : "2") };
-                        if (ledDimMode !== null) { LEDsettings["led_dim_mode"] = ledDimMode; }
-                        if (ledDimBrightness !== null) { LEDsettings["led_dim_brightness"] = ledDimBrightness; }
-
-                        options = {
-                            method: "PUT",
-                            headers: headers,
-                            body: JSON.stringify(LEDsettings),
-                        };
-
-                        fetch(url, options).then(() => {
-                            this.log.info("LEDs switched %s", (value ? "on" : "off"));
-                        });
-
-                    });
-                });
-            });
-
-        }).catch((error) => {
-
-            // Revert internal state in case of error
-            this.accessory.context.device.switchLED_On = !this.accessory.context.device.switchLED_On;
-
-            const service = this.services.get("FritzBox-LEDs");
-            if (service !== undefined) {
-                service.updateCharacteristic(this.Characteristic.On, this.accessory.context.device.switchLED_On);
-            }
-
-            this.log.error("LEDs:", error.message || error);
-        });
-    }
-
     onGet(switchConfig) {
         return switchConfig.enabled;
     }
@@ -231,6 +162,45 @@ class FritzBox {
         this.tr064.send(switchConfig.service, switchConfig.actions[1], args).then(() => {
 
             this.log.info(`${switchConfig.configuredName} was switched`, value ? "on" : "off");
+
+        }).catch((error) => {
+
+            // Revert internal switch state in case of error
+            switchConfig.enabled = !switchConfig.enabled;
+
+            const service = this.services.get(switchConfig.subtype);
+            if (service !== undefined) {
+                service.updateCharacteristic(this.Characteristic.On, switchConfig.enabled);
+            }
+
+            this.log.error(`${switchConfig.configuredName}:`, error.message || error);
+        });
+    }
+
+    onSetAPI(switchConfig, value) {
+
+        // Skip, if value doesn't change
+        if (value === switchConfig.enabled) {
+            return;
+        }
+
+        // Set our own (internal) state
+        switchConfig.enabled = value;
+
+        // Create payload for setting this FRITZ!Box feature on/off
+        const payload = {};
+        for (const key of Object.keys(switchConfig.args)) {
+            if (switchConfig.args[key] !== null) {
+                payload[key] = value ? switchConfig.args[key]["on"] : switchConfig.args[key]["off"];
+            } else {
+                payload[key] = null;
+            }
+        }
+
+        // Send set on/off action
+        this.fritzBoxAPI.send(switchConfig.apiURL, payload).then(() => {
+
+            this.log.info(`${switchConfig.configuredName} switched`, value ? "on" : "off");
 
         }).catch((error) => {
 
