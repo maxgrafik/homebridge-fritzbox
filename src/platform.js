@@ -16,6 +16,7 @@ const fsPromises = require("node:fs/promises");
 const Network = require("./utils/network");
 const TR064 = require("./utils/tr064");
 const AHA = require("./utils/aha");
+const OpenAPI = require("./utils/openapi");
 
 const FritzBoxHelper = require("./utils/fritzbox-helper");
 const HomeKitHelper = require("./utils/homekit-helper");
@@ -101,6 +102,8 @@ class FritzBoxPlatform {
         const tr064 = new TR064(this.log, this.config);
         await tr064.init(fritzboxURL);
 
+        const openAPI = new OpenAPI(this.log, this.config, fritzboxURL);
+
         this.log.info("Device found: %s", tr064.deviceInfo.displayName);
         this.log.info("Starting interview...");
 
@@ -116,6 +119,7 @@ class FritzBoxPlatform {
             const securityPort = await tr064.send("urn:dslforum-org:service:DeviceInfo:1", "GetSecurityPort");
             if (securityPort?.["NewSecurityPort"] !== undefined) {
                 tr064.setSecurityPort(securityPort["NewSecurityPort"]);
+                openAPI.setSecurityPort(securityPort["NewSecurityPort"]);
             }
         }
 
@@ -146,6 +150,7 @@ class FritzBoxPlatform {
                 }
                 defaultUser = currentUser["NewX_AVM-DE_CurrentUsername"];
                 tr064.setDefaultUser(defaultUser);
+                openAPI.setDefaultUser(defaultUser);
             } catch (error) {
                 this.log.debug(error.message || error);
                 this.log.error("Something went wrong. Are you sure this FRITZ!Box supports login without a username?");
@@ -328,15 +333,15 @@ class FritzBoxPlatform {
 
         //! Undocumented API (Experimental)
 
-        const switchesAPI = [];
+        const switchesOpenAPI = [];
 
         if (this.config.services?.LED) {
-            switchesAPI.push({
+            switchesOpenAPI.push({
                 name    : "LEDs",
                 subtype : "FritzBox-API-LED",
                 enabled : true,
-                apiURL  : "/api/v0/generic/box",
-                args    : {
+                route   : "/generic/box",
+                payload : {
                     "led_display": { "on": "0", "off": "2" },
                     "led_dim_mode": null,
                     "led_dim_brightness": null,
@@ -364,7 +369,7 @@ class FritzBoxPlatform {
                 action       : "GetInfo",
                 args         : { "NewSoftwareVersion": "fwversion" },
                 switches     : [].concat(wlan, tam, deflection),
-                switchesAPI  : switchesAPI,
+                switchesAPI  : switchesOpenAPI,
             }
         };
 
@@ -385,12 +390,12 @@ class FritzBoxPlatform {
 
                 existingFritzBox.context.device = fritzbox.device;
                 this.api.updatePlatformAccessories([existingFritzBox]);
-                this.FritzBox = new FritzBox(this, existingFritzBox, tr064);
+                this.FritzBox = new FritzBox(this, existingFritzBox, tr064, openAPI);
             } else {
                 this.log.info("Creating %s", fritzbox.displayName);
                 const accessory = new this.api.platformAccessory(fritzbox.displayName, fritzbox.UUID);
                 accessory.context.device = fritzbox.device;
-                this.FritzBox = new FritzBox(this, accessory, tr064);
+                this.FritzBox = new FritzBox(this, accessory, tr064, openAPI);
                 this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory]);
             }
             this.discoveredCacheUUIDs.push(fritzbox.UUID);

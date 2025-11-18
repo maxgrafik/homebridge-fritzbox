@@ -1,5 +1,10 @@
 # Change Log
 
+## v0.3.2 (2025-11-18)
+
+- Added basic support for (upcoming) REST-API
+- **Experimental:** Switch for FRITZ!Box LEDs (requires FRITZ!OS 8.20)
+
 ## v0.3.1 (2025-11-08)
 
 - Bugfix

@@ -7,12 +7,11 @@
 
 "use strict";
 
-const FritzBoxAPI = require("../utils/fritzbox-api");
 const HomeKitHelper = require("../utils/homekit-helper");
 
 class FritzBox {
 
-    constructor(platform, accessory, tr064) {
+    constructor(platform, accessory, tr064, openAPI) {
 
         this.platform = platform;
         this.accessory = accessory;
@@ -24,6 +23,7 @@ class FritzBox {
         this.Characteristic = platform.api.hap.Characteristic;
 
         this.tr064 = tr064;
+        this.openAPI = openAPI;
 
         this.services = new Map();
         this.configuredNames = [];
@@ -77,10 +77,6 @@ class FritzBox {
 
 
         // Experimental switches
-
-        if (this.accessory.context.device.switchesAPI.length > 0) {
-            this.fritzBoxAPI = new FritzBoxAPI(this.tr064, this.log);
-        }
 
         for (const switchConfig of this.accessory.context.device.switchesAPI) {
 
@@ -189,16 +185,16 @@ class FritzBox {
 
         // Create payload for setting this FRITZ!Box feature on/off
         const payload = {};
-        for (const key of Object.keys(switchConfig.args)) {
-            if (switchConfig.args[key] !== null) {
-                payload[key] = value ? switchConfig.args[key]["on"] : switchConfig.args[key]["off"];
+        for (const key of Object.keys(switchConfig.payload)) {
+            if (switchConfig.payload[key] !== null) {
+                payload[key] = value ? switchConfig.payload[key]["on"] : switchConfig.payload[key]["off"];
             } else {
                 payload[key] = null;
             }
         }
 
         // Send set on/off action
-        this.fritzBoxAPI.send(switchConfig.apiURL, payload).then(() => {
+        this.openAPI.setData(switchConfig.route, payload).then(() => {
 
             this.log.info(`${switchConfig.configuredName} switched`, value ? "on" : "off");
 
