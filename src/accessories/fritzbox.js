@@ -11,7 +11,7 @@ const HomeKitHelper = require("../utils/homekit-helper");
 
 class FritzBox {
 
-    constructor(platform, accessory, tr064) {
+    constructor(platform, accessory, tr064, openAPI) {
 
         this.platform = platform;
         this.accessory = accessory;
@@ -23,6 +23,7 @@ class FritzBox {
         this.Characteristic = platform.api.hap.Characteristic;
 
         this.tr064 = tr064;
+        this.openAPI = openAPI;
 
         this.services = new Map();
         this.configuredNames = [];
@@ -70,6 +71,34 @@ class FritzBox {
             switchService.getCharacteristic(this.Characteristic.On)
                 .onGet(this.onGet.bind(this, switchConfig))
                 .onSet(this.onSet.bind(this, switchConfig));
+
+            this.services.set(switchConfig.subtype, switchService);
+        }
+
+
+        // Experimental switches
+
+        for (const switchConfig of this.accessory.context.device.switchesAPI) {
+
+            switchConfig.name = this.createUniqueName(switchConfig.name);
+            switchConfig.configuredName = switchConfig.configuredName ?? switchConfig.name;
+
+            const switchService = this.accessory.getService(switchConfig.name) || this.accessory.addService(this.Service.Switch, switchConfig.name, switchConfig.subtype);
+
+            if (!switchService.testCharacteristic(this.Characteristic.ConfiguredName)) {
+                switchService.addOptionalCharacteristic(this.Characteristic.ConfiguredName);
+            }
+
+            switchService.getCharacteristic(this.Characteristic.ConfiguredName)
+                .updateValue(switchConfig.configuredName);
+
+            switchService.getCharacteristic(this.Characteristic.ConfiguredName)
+                .onGet(this.onGetConfiguredName.bind(this, switchConfig))
+                .onSet(this.onSetConfiguredName.bind(this, switchConfig));
+
+            switchService.getCharacteristic(this.Characteristic.On)
+                .onGet(this.onGet.bind(this, switchConfig))
+                .onSet(this.onSetAPI.bind(this, switchConfig));
 
             this.services.set(switchConfig.subtype, switchService);
         }
@@ -144,6 +173,45 @@ class FritzBox {
         });
     }
 
+    onSetAPI(switchConfig, value) {
+
+        // Skip, if value doesn't change
+        if (value === switchConfig.enabled) {
+            return;
+        }
+
+        // Set our own (internal) state
+        switchConfig.enabled = value;
+
+        // Create payload for setting this FRITZ!Box feature on/off
+        const payload = {};
+        for (const key of Object.keys(switchConfig.payload)) {
+            if (switchConfig.payload[key] !== null) {
+                payload[key] = value ? switchConfig.payload[key]["on"] : switchConfig.payload[key]["off"];
+            } else {
+                payload[key] = null;
+            }
+        }
+
+        // Send set on/off action
+        this.openAPI.setData(switchConfig.route, payload).then(() => {
+
+            this.log.info(`${switchConfig.configuredName} switched`, value ? "on" : "off");
+
+        }).catch((error) => {
+
+            // Revert internal switch state in case of error
+            switchConfig.enabled = !switchConfig.enabled;
+
+            const service = this.services.get(switchConfig.subtype);
+            if (service !== undefined) {
+                service.updateCharacteristic(this.Characteristic.On, switchConfig.enabled);
+            }
+
+            this.log.error(`${switchConfig.configuredName}:`, error.message || error);
+        });
+    }
+
     onGetConfiguredName(switchConfig) {
         return switchConfig.configuredName ?? switchConfig.name;
     }
@@ -196,6 +264,66 @@ class FritzBox {
                         service.updateCharacteristic(this.Characteristic.On, switchConfig.enabled);
                     }
                 }
+            } catch (error) {
+                this.log.warn("An error occured while trying to update the state of the FRITZ!Box. Will try again");
+                this.log.debug(error.message || error);
+            }
+        }
+
+
+        // Update experimental switches
+
+        for (const switchConfig of this.accessory.context.device.switchesAPI) {
+
+            // Get the setting we're interested in (payload[key] !== null)
+            let requiredKey = null;
+            for (const key of Object.keys(switchConfig.payload)) {
+                if (switchConfig.payload[key] !== null) {
+                    requiredKey = key;
+                    break;
+                }
+            }
+
+            // Shouldn't happen, but anyway
+            if (requiredKey === null) {
+                continue;
+            }
+
+            try {
+
+                // Get current state
+                const state = await this.openAPI.getData(switchConfig.route);
+
+                if (!Object.hasOwn(state, requiredKey)) {
+                    this.log.warn("Error updating switch state. Required setting '%s' not found", requiredKey);
+                    this.log.debug(state);
+                    continue;
+                }
+
+                // Get current value for requiredKey
+                const stateValue = state[requiredKey];
+
+                // Get switch value from state value
+                let switchValue = null;
+                for (const [key, value] of Object.entries(switchConfig.payload[requiredKey])) {
+                    if (value === stateValue) {
+                        switchValue = key;
+                        break;
+                    }
+                }
+
+                if (switchValue === null) {
+                    this.log.warn("Error updating switch state. Unknown value for '%s' found: %s", requiredKey, stateValue);
+                    continue;
+                }
+
+                switchConfig.enabled = (switchValue === "on") ? true : false;
+
+                const service = this.services.get(switchConfig.subtype);
+                if (service !== undefined) {
+                    service.updateCharacteristic(this.Characteristic.On, switchConfig.enabled);
+                }
+
             } catch (error) {
                 this.log.warn("An error occured while trying to update the state of the FRITZ!Box. Will try again");
                 this.log.debug(error.message || error);

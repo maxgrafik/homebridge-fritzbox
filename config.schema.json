@@ -49,6 +49,11 @@
                         "type": "boolean",
                         "title": "Smart home devices",
                         "default": true
+                    },
+                    "LED": {
+                        "type": "boolean",
+                        "title": "LEDs",
+                        "default": false
                     }
                 }
             },
@@ -128,7 +133,20 @@
                 },
                 "services.TAM",
                 "services.CallDeflection",
-                "services.SmartHome"
+                "services.SmartHome",
+                {
+                    "type": "section",
+                    "title": "Experimental",
+                    "expandable": true,
+                    "expanded": false,
+                    "items": [
+                        {
+                            "type": "help",
+                            "helpvalue": "<p class='text-warning'>Caution: The following options require FRITZ!OS 8.20 or later. These may not work on your FRITZ!Box model. And even if it works, it may fail with upcoming FRITZ!OS updates.</p>"
+                        },
+                        "services.LED"
+                    ]
+                }
             ]
         },
         {

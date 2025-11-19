@@ -16,7 +16,7 @@ const fsPromises = require("node:fs/promises");
 const Network = require("./utils/network");
 const TR064 = require("./utils/tr064");
 const AHA = require("./utils/aha");
-// const OpenAPI = require("./utils/openapi");
+const OpenAPI = require("./utils/openapi");
 
 const FritzBoxHelper = require("./utils/fritzbox-helper");
 const HomeKitHelper = require("./utils/homekit-helper");
@@ -102,7 +102,7 @@ class FritzBoxPlatform {
         const tr064 = new TR064(this.log, this.config);
         await tr064.init(fritzboxURL);
 
-        // const openAPI = new OpenAPI(this.log, this.config, fritzboxURL);
+        const openAPI = new OpenAPI(this.log, this.config, fritzboxURL);
 
         this.log.info("Device found: %s", tr064.deviceInfo.displayName);
         this.log.info("Starting interview...");
@@ -119,7 +119,7 @@ class FritzBoxPlatform {
             const securityPort = await tr064.send("urn:dslforum-org:service:DeviceInfo:1", "GetSecurityPort");
             if (securityPort?.["NewSecurityPort"] !== undefined) {
                 tr064.setSecurityPort(securityPort["NewSecurityPort"]);
-                // openAPI.setSecurityPort(securityPort["NewSecurityPort"]);
+                openAPI.setSecurityPort(securityPort["NewSecurityPort"]);
             }
         }
 
@@ -150,7 +150,7 @@ class FritzBoxPlatform {
                 }
                 defaultUser = currentUser["NewX_AVM-DE_CurrentUsername"];
                 tr064.setDefaultUser(defaultUser);
-                // openAPI.setDefaultUser(defaultUser);
+                openAPI.setDefaultUser(defaultUser);
             } catch (error) {
                 this.log.debug(error.message || error);
                 this.log.error("Something went wrong. Are you sure this FRITZ!Box supports login without a username?");
@@ -331,6 +331,25 @@ class FritzBoxPlatform {
         }
 
 
+        //! Undocumented API (Experimental)
+
+        const switchesOpenAPI = [];
+
+        if (this.config.services?.LED) {
+            switchesOpenAPI.push({
+                name    : "LEDs",
+                subtype : "FritzBox-API-LED",
+                enabled : true,
+                route   : "/generic/box",
+                payload : {
+                    "led_display": { "on": "0", "off": "2" },
+                    "led_dim_mode": null,
+                    "led_dim_brightness": null,
+                },
+            });
+        }
+
+
         // Configure Homebridge accessories
 
         this.log.info("Configuring accessories...");
@@ -350,10 +369,11 @@ class FritzBoxPlatform {
                 action       : "GetInfo",
                 args         : { "NewSoftwareVersion": "fwversion" },
                 switches     : [].concat(wlan, tam, deflection),
+                switchesAPI  : switchesOpenAPI,
             }
         };
 
-        if (fritzbox.device.switches.length > 0) {
+        if (fritzbox.device.switches.length > 0 || fritzbox.device.switchesAPI.length > 0) {
             const existingFritzBox = this.accessories.get(fritzbox.UUID);
             if (existingFritzBox) {
                 this.log.debug("Restoring %s", existingFritzBox.displayName);
@@ -363,15 +383,19 @@ class FritzBoxPlatform {
                     const match = existingFritzBox.context.device.switches.find(e => e.subtype === s.subtype);
                     match && match.configuredName && (s.configuredName = match.configuredName);
                 }
+                for (const s of fritzbox.device.switchesAPI) {
+                    const match = existingFritzBox.context.device.switchesAPI.find(e => e.subtype === s.subtype);
+                    match && match.configuredName && (s.configuredName = match.configuredName);
+                }
 
                 existingFritzBox.context.device = fritzbox.device;
                 this.api.updatePlatformAccessories([existingFritzBox]);
-                this.FritzBox = new FritzBox(this, existingFritzBox, tr064);
+                this.FritzBox = new FritzBox(this, existingFritzBox, tr064, openAPI);
             } else {
                 this.log.info("Creating %s", fritzbox.displayName);
                 const accessory = new this.api.platformAccessory(fritzbox.displayName, fritzbox.UUID);
                 accessory.context.device = fritzbox.device;
-                this.FritzBox = new FritzBox(this, accessory, tr064);
+                this.FritzBox = new FritzBox(this, accessory, tr064, openAPI);
                 this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory]);
             }
             this.discoveredCacheUUIDs.push(fritzbox.UUID);
