@@ -16,10 +16,10 @@
 
 Work in progress
 
-This [Homebridge](https://homebridge.io) plugin exposes some FRITZ!Box features to Apple HomeKit. Currently supported are switches for WLAN, configured answering machines and call deflections. Smart home devices connected to the FRITZ!Box may also be exposed as HomeKit devices<sup>1</sup>.
+This [Homebridge](https://homebridge.io) plugin exposes some FRITZ!Box features to Apple HomeKit. Smart home devices connected to your FRITZ!Box can also be exposed as HomeKit devices<sup>1</sup>.
 
-**Caution! You’re viewing the <ins>experimental</ins> branch!**\
-Some features of this branch use an undocumented API and require Fritz!OS 8.20 or later. It may not work on your FRITZ!Box model. And even if it works, it may fail with upcoming Fritz!OS updates.
+**Caution!**\
+Some features use an undocumented API and are considered experimental. Requires FRITZ!OS 8.20 or later. These may not work on your FRITZ!Box model. And even if they work, may fail with upcoming FRITZ!OS updates.
 
 
 ## Configuration
