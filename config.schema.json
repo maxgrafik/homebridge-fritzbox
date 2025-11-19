@@ -142,7 +142,7 @@
                     "items": [
                         {
                             "type": "help",
-                            "helpvalue": "<p class='text-warning'>Caution: The following options use an undocumented API. Expect this to fail anytime.</p>"
+                            "helpvalue": "<p class='text-warning'>Caution: The following options require FRITZ!OS 8.20 or later. These may not work on your FRITZ!Box model. And even if it works, it may fail with upcoming FRITZ!OS updates.</p>"
                         },
                         "services.LED"
                     ]

@@ -271,6 +271,66 @@ class FritzBox {
         }
 
 
+        // Update experimental switches
+
+        for (const switchConfig of this.accessory.context.device.switchesAPI) {
+
+            // Get the setting we're interested in (payload[key] !== null)
+            let requiredKey = null;
+            for (const key of Object.keys(switchConfig.payload)) {
+                if (switchConfig.payload[key] !== null) {
+                    requiredKey = key;
+                    break;
+                }
+            }
+
+            // Shouldn't happen, but anyway
+            if (requiredKey === null) {
+                continue;
+            }
+
+            try {
+
+                // Get current state
+                const state = await this.openAPI.getData(switchConfig.route);
+
+                if (!Object.hasOwn(state, requiredKey)) {
+                    this.log.warn("Error updating switch state. Required setting '%s' not found", requiredKey);
+                    this.log.debug(state);
+                    continue;
+                }
+
+                // Get current value for requiredKey
+                const stateValue = state[requiredKey];
+
+                // Get switch value from state value
+                let switchValue = null;
+                for (const [key, value] of Object.entries(switchConfig.payload[requiredKey])) {
+                    if (value === stateValue) {
+                        switchValue = key;
+                        break;
+                    }
+                }
+
+                if (switchValue === null) {
+                    this.log.warn("Error updating switch state. Unknown value for '%s' found: %s", requiredKey, stateValue);
+                    continue;
+                }
+
+                switchConfig.enabled = (switchValue === "on") ? true : false;
+
+                const service = this.services.get(switchConfig.subtype);
+                if (service !== undefined) {
+                    service.updateCharacteristic(this.Characteristic.On, switchConfig.enabled);
+                }
+
+            } catch (error) {
+                this.log.warn("An error occured while trying to update the state of the FRITZ!Box. Will try again");
+                this.log.debug(error.message || error);
+            }
+        }
+
+
         // Update accessory information (FirmwareRevision) every 24h
 
         const timeSinceLastFWUpdate = (Date.now() - this.lastFWUpdate) / 1000;
