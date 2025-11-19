@@ -1,5 +1,9 @@
 # Change Log
 
+## v0.3.3 (2025-11-18)
+
+- Removed global database for smart home devices (there was only one entry anyway). Details about discovered devices will be saved to homebridge storage folder instead. This way users may edit services and characteristics if needed, or even skip a device entirely.
+
 ## v0.3.2 (2025-11-18)
 
 - Added basic support for (upcoming) REST-API

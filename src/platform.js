@@ -24,7 +24,6 @@ const HomeKitCustom = require("./utils/homekit-custom");
 
 const FritzBox = require("./accessories/fritzbox");
 const Accessories = require("./accessories");
-const DeviceDB = require("./accessories/deviceDB.json");
 
 class FritzBoxPlatform {
 
@@ -287,20 +286,38 @@ class FritzBoxPlatform {
 
                 const state = await aha.send("getdevicelistinfos");
 
-                // Save device list for plugin support
+                // Save device list for debugging
                 this.saveDeviceList(state);
 
                 const deviceList = state?.["devicelist"]?.["device"] || [];
+
+                this.log.debug("[Interview] Found %s smart home device(s)", deviceList.length);
+
+                const deviceDB = await this.loadDeviceDB();
+
                 for (const device of deviceList) {
                     if (device["present"] === "1") {
 
-                        let deviceDescription = DeviceDB[device["@productname"]];
+                        let deviceDescription = deviceDB[device["@identifier"]];
+
+                        if (deviceDescription !== undefined && deviceDescription.enabled !== true) {
+                            this.log.debug("Skipping %s", device["name"]);
+                            continue;
+                        }
+
                         if (deviceDescription === undefined) {
-                            this.log.debug("Device not in database: %s", device["@productname"]);
                             deviceDescription = FritzBoxHelper.getServicesAndCharacteristics(device);
+                            deviceDB[device["@identifier"]] = {
+                                name: device["name"],
+                                model: device["@productname"] || "Generic Device",
+                                enabled: true,
+                                services: deviceDescription.services,
+                                characteristics: deviceDescription.characteristics,
+                            };
                         }
 
                         if (deviceDescription.services.length === 0) {
+                            this.log.debug("%s provides no services", device["name"]);
                             continue;
                         }
 
@@ -326,7 +343,7 @@ class FritzBoxPlatform {
                     }
                 }
 
-                this.log.debug("[Interview] Found %s connected smart home device(s)", smartHomeAccessories.length);
+                this.saveDeviceDB(deviceDB);
             }
         }
 
@@ -348,11 +365,6 @@ class FritzBoxPlatform {
                 },
             });
         }
-
-
-        // Configure Homebridge accessories
-
-        this.log.info("Configuring accessories...");
 
 
         // Restore/Register FRITZ!Box
@@ -501,6 +513,33 @@ class FritzBoxPlatform {
         try {
             await fsPromises.mkdir(path.dirname(filePath), { recursive: true });
             await fsPromises.writeFile(filePath, JSON.stringify(deviceList, null, 4), { encoding: "utf8" });
+        } catch(error) {
+            this.log.debug(error.message || error);
+        }
+    }
+
+    async loadDeviceDB() {
+
+        const storagePath = this.api.user.storagePath();
+        const filePath = path.join(storagePath, "fritzbox", "deviceDB.json");
+
+        try {
+            await fsPromises.mkdir(path.dirname(filePath), { recursive: true });
+            const contents = await fsPromises.readFile(filePath, { encoding: "utf8" });
+            return JSON.parse(contents);
+        } catch(error) {
+            return {};
+        }
+    }
+
+    async saveDeviceDB(devices) {
+
+        const storagePath = this.api.user.storagePath();
+        const filePath = path.join(storagePath, "fritzbox", "deviceDB.json");
+
+        try {
+            await fsPromises.mkdir(path.dirname(filePath), { recursive: true });
+            await fsPromises.writeFile(filePath, JSON.stringify(devices, null, 4), { encoding: "utf8" });
         } catch(error) {
             this.log.debug(error.message || error);
         }
