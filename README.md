@@ -39,7 +39,8 @@ I recommend using [Homebridge UI](https://github.com/homebridge/homebridge-confi
             "TAM": <true|false>,
             "CallDeflection": <true|false>,
             "SmartHome": <true|false>,
-            "LED": <true|false>
+            "LED": <true|false>,
+            "ButtonLock": <true|false>
         },
         "update": {
             "fritzbox": <seconds>,
@@ -62,6 +63,7 @@ Option | Description | Default
 **services.CallDeflection** | Create switches for each configured call deflection | true
 **services.SmartHome<sup>1</sup>** | Expose smart home devices connected to the FRITZ!Box as HomeKit devices | true
 **services.LED<sup>3</sup>** | Create switch to turn on/off FRITZ!Box LEDs | false
+**services.ButtonLock<sup>3</sup>** | Create switch to lock FRITZ!Box buttons | false
 **update.fritzbox<sup>2</sup>** | Time in seconds to update the state of FRITZ!Box switches (WLAN, TAM, etc.) | 60
 **update.smarthome<sup>2</sup>** | Time in seconds to update the state of smart home devices | 15
 **advanced.host** | The IP of your FRITZ!Box, if you want to bypass auto discovery | -

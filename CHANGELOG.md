@@ -8,6 +8,7 @@
 
 - Added basic support for (upcoming) REST-API
 - **Experimental:** Switch for FRITZ!Box LEDs (requires FRITZ!OS 8.20)
+- **Experimental:** Switch for FRITZ!Box Button Lock (requires FRITZ!OS 8.20)
 
 ## v0.3.1 (2025-11-08)
 

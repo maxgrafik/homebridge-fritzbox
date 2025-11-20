@@ -54,6 +54,11 @@
                         "type": "boolean",
                         "title": "LEDs",
                         "default": false
+                    },
+                    "ButtonLock": {
+                        "type": "boolean",
+                        "title": "Button Lock",
+                        "default": false
                     }
                 }
             },
@@ -144,7 +149,8 @@
                             "type": "help",
                             "helpvalue": "<p class='text-warning'>Caution: The following options require FRITZ!OS 8.20 or later. These may not work on your FRITZ!Box model. And even if it works, it may fail with upcoming FRITZ!OS updates.</p>"
                         },
-                        "services.LED"
+                        "services.LED",
+                        "services.ButtonLock"
                     ]
                 }
             ]

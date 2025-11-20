@@ -366,6 +366,18 @@ class FritzBoxPlatform {
             });
         }
 
+        if (this.config.services?.ButtonLock) {
+            switchesOpenAPI.push({
+                name    : "Button Lock",
+                subtype : "FritzBox-API-ButtonLock",
+                enabled : false,
+                route   : "/generic/box",
+                payload : {
+                    "button_events_disable": { "on": "1", "off": "0" },
+                },
+            });
+        }
+
 
         // Restore/Register FRITZ!Box
 
