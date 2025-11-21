@@ -59,6 +59,17 @@
                         "type": "boolean",
                         "title": "Button Lock",
                         "default": false
+                    },
+                    "CallMonitor": {
+                        "type": "boolean",
+                        "title": "Enable",
+                        "description": "Don’t forget to also activate this on your FRITZ!Box by dialing <kbd>#96*5*</kbd>",
+                        "default": false
+                    },
+                    "CallMonitorCallerIDs": {
+                        "type": "string",
+                        "title": "Only notify if the following phone number(s) call",
+                        "description": "Single phone number, comma separated list or Regular Expression. Leave blank to always notify."
                     }
                 }
             },
@@ -170,6 +181,17 @@
                         "update.smarthome"
                     ]
                 }
+            ]
+        },
+        {
+            "type": "fieldset",
+            "title": "CallMonitor",
+            "description": "Get notified when someone calls you",
+            "expandable": true,
+            "expanded": false,
+            "items": [
+                "services.CallMonitor",
+                "services.CallMonitorCallerIDs"
             ]
         },
         {

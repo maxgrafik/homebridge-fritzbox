@@ -23,6 +23,7 @@ const HomeKitHelper = require("./utils/homekit-helper");
 const HomeKitCustom = require("./utils/homekit-custom");
 
 const FritzBox = require("./accessories/fritzbox");
+const CallMonitor = require("./accessories/callmonitor");
 const Accessories = require("./accessories");
 
 class FritzBoxPlatform {
@@ -41,6 +42,7 @@ class FritzBoxPlatform {
         this.discoveredCacheUUIDs = [];
 
         this.FritzBox = null;
+        this.CallMonitor = null;
         this.SmartHomeAccessories = [];
         this.CustomTypes = new HomeKitCustom(api);
 
@@ -59,6 +61,7 @@ class FritzBoxPlatform {
                 this.accessories.clear();
                 this.discoveredCacheUUIDs = [];
                 this.FritzBox = null;
+                this.CallMonitor = null;
                 this.SmartHomeAccessories = [];
 
                 this.log.error(error.message || error);
@@ -453,6 +456,39 @@ class FritzBoxPlatform {
         }
 
 
+        // Restore/Register CallMonitor
+
+        if (this.config.services?.CallMonitor) {
+
+            const callMonitor = {
+                UUID        : this.api.hap.uuid.generate(`${tr064.deviceInfo.model} ${tr064.deviceInfo.serialNo} CallMonitor`),
+                displayName : "CallMonitor",
+                device : {
+                    manufacturer : tr064.deviceInfo.manufacturer,
+                    serialNo     : tr064.deviceInfo.serialNo,
+                    model        : tr064.deviceInfo.model,
+                    fwversion    : tr064.deviceInfo.fwversion,
+                    state        : {},
+                }
+            };
+
+            const existingAccessory = this.accessories.get(callMonitor.UUID);
+            if (existingAccessory) {
+                this.log.debug("Restoring CallMonitor");
+                existingAccessory.context.device = callMonitor.device;
+                this.api.updatePlatformAccessories([existingAccessory]);
+                this.CallMonitor = new CallMonitor(this, existingAccessory);
+            } else {
+                this.log.info("Creating CallMonitor");
+                const accessory = new this.api.platformAccessory(callMonitor.displayName, callMonitor.UUID);
+                accessory.context.device = callMonitor.device;
+                this.CallMonitor = new CallMonitor(this, accessory);
+                this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory]);
+            }
+            this.discoveredCacheUUIDs.push(callMonitor.UUID);
+        }
+
+
         // Clean up
 
         for (const [uuid, accessory] of this.accessories) {
@@ -473,6 +509,13 @@ class FritzBoxPlatform {
 
         if (this.SmartHomeAccessories.length !== 0) {
             this.updateDevices(aha);
+        }
+
+
+        // Start CallMonitor (if configured)
+
+        if (this.CallMonitor !== null) {
+            this.CallMonitor.init(fritzboxURL.hostname);
         }
     }
 

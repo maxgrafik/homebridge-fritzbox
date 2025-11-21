@@ -1,5 +1,9 @@
 # Change Log
 
+## v0.4.0 (2025-11-21)
+
+- Added CallMonitor
+
 ## v0.3.3 (2025-11-18)
 
 - Removed global database for smart home devices (there was only one entry anyway). Details about discovered devices will be saved to homebridge storage folder instead. This way users may edit services and characteristics if needed, or even skip a device entirely.

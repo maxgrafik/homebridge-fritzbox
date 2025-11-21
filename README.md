@@ -40,7 +40,8 @@ I recommend using [Homebridge UI](https://github.com/homebridge/homebridge-confi
             "CallDeflection": <true|false>,
             "SmartHome": <true|false>,
             "LED": <true|false>,
-            "ButtonLock": <true|false>
+            "ButtonLock": <true|false>,
+            "CallMonitor": <true|false>
         },
         "update": {
             "fritzbox": <seconds>,
@@ -64,6 +65,7 @@ Option | Description | Default
 **services.SmartHome<sup>1</sup>** | Expose smart home devices connected to the FRITZ!Box as HomeKit devices | true
 **services.LED<sup>3</sup>** | Create switch to turn on/off FRITZ!Box LEDs | false
 **services.ButtonLock<sup>3</sup>** | Create switch to lock FRITZ!Box buttons | false
+**services.CallMonitor<sup>4</sup>** | Create a motion sensor for incoming calls | false
 **update.fritzbox<sup>2</sup>** | Time in seconds to update the state of FRITZ!Box switches (WLAN, TAM, etc.) | 60
 **update.smarthome<sup>2</sup>** | Time in seconds to update the state of smart home devices | 15
 **advanced.host** | The IP of your FRITZ!Box, if you want to bypass auto discovery | -
@@ -76,6 +78,8 @@ However, a contact sensor *(not implemented yet anyway)* which only updates ever
 But remember ... the main duty of a FRITZ!Box **is not** to answer countless requests of some random Homebridge plugin.</small>
 
 <small><sup>3</sup> Experimental feature</small>
+
+<small><sup>4</sup> Note: This also needs to be activated on your FRITZ!Box by dialing `#96*5*` (to deactivate dial `#96*4*`). When activated, your FRITZ!Box announces every incoming/outgoing call on port 1012. No encryption! No login!</small>
 
 
 ## Note
