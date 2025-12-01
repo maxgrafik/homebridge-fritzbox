@@ -8,6 +8,7 @@
 "use strict";
 
 const net = require("node:net");
+const { spawn } = require("node:child_process");
 
 class CallMonitor {
 
@@ -65,6 +66,8 @@ class CallMonitor {
                 }
             }
         }
+
+        this.shellCmd = platform.config.services?.CallMonitorShellCmd;
     }
 
     onGet() {
@@ -153,6 +156,7 @@ class CallMonitor {
         if (connectionType === "RING") {
 
             const callerID = msg[3];
+            const callee   = msg[4];
 
             if (this.callerIDs !== null) {
                 if (
@@ -164,6 +168,14 @@ class CallMonitor {
             }
 
             this.log.info("Incoming call: %s", callerID);
+
+            if (this.shellCmd) {
+                const process = spawn(this.shellCmd, [callerID, callee], { shell: true });
+                process.stderr.on("data", (data) => {
+                    this.log.error("Shell command failed");
+                    this.log.debug(data);
+                });
+            }
 
             this.calls.set(connectionID, callerID);
         }

@@ -1,5 +1,9 @@
 # Change Log
 
+## v0.5.0 (2025-12-01)
+
+- CallMonitor: Added option to execute shell command on incoming calls
+
 ## v0.4.0 (2025-11-21)
 
 - Added CallMonitor
