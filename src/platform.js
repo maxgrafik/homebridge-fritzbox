@@ -495,7 +495,8 @@ class FritzBoxPlatform {
             state = await aha.send("getdevicelistinfos");
         } catch (error) {
             this.log.warn("An error occured while trying to update the state of smart home devices. Will try again");
-            this.log.debug(error.message || error);
+            // this.log.debug(error.message || error);
+            this.log.debug(error);
         }
 
         const deviceList = state?.["devicelist"]?.["device"] || [];
