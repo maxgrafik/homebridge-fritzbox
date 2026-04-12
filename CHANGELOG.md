@@ -1,5 +1,9 @@
 # Change Log
 
+## v0.6.0  (2026-04-12)
+
+- Update supported Node.js versions
+
 ## v0.5.0 (2025-12-01)
 
 - CallMonitor: Added option to execute shell command on incoming calls
