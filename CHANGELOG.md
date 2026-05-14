@@ -1,8 +1,13 @@
 # Change Log
 
+## v0.6.1  (2026-05-14)
+
+- Updated supported Homebridge versions
+- Updated README
+
 ## v0.6.0  (2026-04-12)
 
-- Update supported Node.js versions
+- Updated supported Node.js versions
 
 ## v0.5.0 (2025-12-01)
 
